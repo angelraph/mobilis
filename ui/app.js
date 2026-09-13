@@ -231,7 +231,7 @@ async function refresh() {
 
 async function runAction(fn) {
   if (state.mock) {
-    state.error = "This is a static preview with sample data — no ledger is connected. Run this locally to try actions (see docs/setup-guide.md in the repo).";
+    state.error = "This is a static preview with sample data. No ledger is connected. Run this locally to try actions (see docs/setup-guide.md in the repo).";
     render();
     return;
   }
@@ -657,7 +657,7 @@ function renderCustodianTools() {
     onclick: async () => {
       if (state.aiBusy) return;
       if (state.mock) {
-        state.error = "This is a static preview with sample data — the AI drafting proxy isn't reachable here. Run this locally to try it (see docs/setup-guide.md in the repo).";
+        state.error = "This is a static preview with sample data. The AI drafting proxy isn't reachable here. Run this locally to try it (see docs/setup-guide.md in the repo).";
         render();
         return;
       }
@@ -754,7 +754,7 @@ function renderBody() {
   if (state.mock) {
     app.appendChild(
       el("div", { class: "preview-banner" }, [
-        el("strong", { text: "Static preview — sample data. " }),
+        el("strong", { text: "Static preview: sample data. " }),
         el("span", { text: "No Daml ledger is connected here. Run this locally to see it live and try the actions (see docs/setup-guide.md in the repo)." }),
       ])
     );
