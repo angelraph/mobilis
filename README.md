@@ -4,6 +4,9 @@ An atomic, privacy-preserving collateral mobility engine for Canton.
 
 Built for HackCanton Season 3, RWA & Business Workflows track.
 
+Repo: [github.com/angelraph/mobilis](https://github.com/angelraph/mobilis) (private)
+Static UI preview (sample data, no live ledger — see below): [mobilis-angelraphs-projects.vercel.app](https://mobilis-angelraphs-projects.vercel.app)
+
 ## The one-line pitch
 
 Mobilis lets a pledgor, a secured party, and a custodian move, substitute,
@@ -109,6 +112,15 @@ the one thing to regenerate after a Daml rebuild.
 
 It's responsive down to a phone-width screen: the data tables collapse
 into stacked label/value cards below 640px instead of overflowing.
+
+The same static files are also deployed to Vercel at
+[mobilis-angelraphs-projects.vercel.app](https://mobilis-angelraphs-projects.vercel.app)
+for a quick look without installing anything. There's no Daml ledger
+behind that deployment (Vercel hosts static sites, not a JVM sandbox), so
+it automatically falls back to a bundled sample dataset, a real snapshot
+captured from a local run, clearly labeled as a static preview. Actions
+show an honest message instead of failing. Run it locally per the setup
+guide for the real, live, interactive version.
 
 One thing worth knowing before showing this to anyone outside a local
 sandbox: the UI authenticates by minting its own tokens in the browser
