@@ -67,6 +67,48 @@ less, correctly, by construction. Not because a UI hid a column, but because
 that participant's ledger literally holds no other contract type for this
 agreement.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph browser["Your browser"]
+        ui["Role-switcher UI\n(plain HTML/CSS/JS, ui/)"]
+    end
+
+    subgraph local["Your machine, local Canton sandbox"]
+        jsonapi["Daml JSON API"]
+        ledger[("Ledger state:\nagreements, calls,\nreports")]
+        jsonapi --> ledger
+    end
+
+    subgraph aiproxy["Your machine, small local server"]
+        proxy["proxy/server.js"]
+    end
+
+    openai[["OpenAI API"]]
+
+    ui -- "read contracts,\npropose/agree/settle" --> jsonapi
+    ui -- "Draft with AI button" --> proxy
+    proxy -- "holds the real API key,\nnever the browser" --> openai
+```
+
+```mermaid
+flowchart TB
+    agreement["The agreement, its live schedule,\nand every delivery/substitution/return call"]
+    report["AuditReport\n(a computed summary only:\ntotals, positions, any breaches)"]
+
+    Pledgor -->|sees and acts on| agreement
+    SecuredParty["Secured Party"] -->|sees and acts on| agreement
+    Custodian -->|sees, settles, and\ngenerates reports from| agreement
+    Custodian -->|generates| report
+    Regulator -->|sees ONLY| report
+```
+
+Full write-up of how this works, including the call-lifecycle state
+diagram and a step-by-step testing guide, is in
+[docs/architecture.md](docs/architecture.md). Written for a first-time
+reader, no Daml or blockchain background assumed.
+
 ## Repo layout
 
 ```
