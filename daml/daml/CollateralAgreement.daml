@@ -1,0 +1,220 @@
+module CollateralAgreement where
+
+import DA.Optional (fromOptional)
+import Types
+import AuditReport
+
+-- | The static terms of a collateral relationship. Pledgor and securedParty
+-- are signatories; the custodian is an observer so it can see and settle
+-- calls. Note: `regulator` is recorded here as plain data (the agreement's
+-- terms name who the regulator of record is) but is deliberately NOT an
+-- observer of this contract -- the regulator only ever sees an AuditReport
+-- (see AuditReport.daml). That's the privacy model in one line.
+template CollateralAgreement
+  with
+    pledgor : Party
+    securedParty : Party
+    custodian : Party
+    regulator : Party
+    agreementId : Text
+    eligibilityCriteria : [EligibilityCriterion]
+  where
+    signatory pledgor, securedParty
+    observer custodian
+
+    nonconsuming choice CollateralAgreement_OpenState : ContractId CollateralAgreementState
+      controller custodian
+      do
+        create CollateralAgreementState with
+          pledgor
+          securedParty
+          custodian
+          regulator
+          agreementId
+          schedule = []
+
+    nonconsuming choice CollateralAgreement_RequestMarginCall : ContractId MarginCall
+      with
+        amount : Decimal
+        direction : CallDirection
+      controller securedParty
+      do
+        create MarginCall with
+          pledgor
+          securedParty
+          custodian
+          agreementId
+          amount
+          direction
+          fulfilled = False
+
+    nonconsuming choice CollateralAgreement_ProposeCall : ContractId CollateralCall
+      with
+        proposer : Party
+        action : CallAction
+      controller proposer
+      do
+        assertMsg "Only the pledgor or secured party may propose a call" (proposer == pledgor || proposer == securedParty)
+        create CollateralCall with
+          pledgor
+          securedParty
+          custodian
+          agreementId
+          proposer
+          action
+          status = Outstanding
+
+-- | The running, mutable collateral schedule for one agreement. Re-created
+-- (archive + create) each time a call settles -- mirrors the split between
+-- static terms and live state used in Digital Asset's ex-collateral
+-- reference model.
+template CollateralAgreementState
+  with
+    pledgor : Party
+    securedParty : Party
+    custodian : Party
+    regulator : Party
+    agreementId : Text
+    schedule : [PostedAsset]
+  where
+    signatory pledgor, securedParty
+    observer custodian
+
+    choice State_ApplyCall : ContractId CollateralAgreementState
+      with
+        action : CallAction
+      controller custodian
+      do
+        let newSchedule = case action of
+              Delivery asset -> schedule ++ [asset]
+              Return asset -> filter (/= asset) schedule
+              Substitution outgoing incoming -> incoming :: filter (/= outgoing) schedule
+        create this with schedule = newSchedule
+
+    -- | Custodian computes and publishes a fresh audit report from the
+    -- current schedule and the agreement's eligibility terms. This is the
+    -- only path by which information about this agreement ever reaches the
+    -- regulator, and it is a reduced summary, not the raw schedule.
+    -- | narrativeOverride lets the custodian's own tooling (e.g. an
+    -- LLM-drafted summary, reviewed by a person before it's committed) supply
+    -- the plain-English narrative instead of the deterministic default below.
+    -- Every number in the report (totals, positions, breaches) is always
+    -- computed here from the live schedule, never taken from the caller --
+    -- only the free-text narrative is ever an input, because that's the one
+    -- field that is inherently descriptive rather than a fact the ledger
+    -- itself can verify.
+    nonconsuming choice State_GenerateAuditReport : ContractId AuditReport
+      with
+        agreementCid : ContractId CollateralAgreement
+        asOfNote : Text
+        narrativeOverride : Optional Text
+      controller custodian
+      do
+        agreement <- fetch agreementCid
+        assertMsg "Report must be generated for this agreement" (agreement.agreementId == agreementId)
+        let eligibleTypes = map (\c -> c.assetType) agreement.eligibilityCriteria
+            total = sum (map (\a -> a.postedValue) schedule)
+            byType = foldl
+              (\acc asset ->
+                case lookup asset.assetType acc of
+                  Some existing -> (asset.assetType, existing + asset.postedValue) :: filter (\t -> fst t /= asset.assetType) acc
+                  None -> (asset.assetType, asset.postedValue) :: acc
+              )
+              []
+              schedule
+            breaches = [ a.assetType | a <- schedule, a.assetType `notElem` eligibleTypes ]
+            defaultNote =
+              if null breaches
+                then "All posted collateral is within the agreed eligibility schedule."
+                else "Attention: " <> show (length breaches) <> " posted asset(s) fall outside the agreed eligibility schedule."
+            note = fromOptional defaultNote narrativeOverride
+        create AuditReport with
+          custodian
+          regulator
+          pledgor
+          securedParty
+          agreementId
+          asOfNote
+          totalPostedValue = total
+          positionsByAssetType = byType
+          eligibilityBreaches = breaches
+          narrative = note
+
+-- | A standing demand from the secured party for more (or less) collateral.
+-- Kept around so the audit report/pitch can reference it; considered
+-- fulfilled once the corresponding CollateralCall has settled.
+template MarginCall
+  with
+    pledgor : Party
+    securedParty : Party
+    custodian : Party
+    agreementId : Text
+    amount : Decimal
+    direction : CallDirection
+    fulfilled : Bool
+  where
+    signatory securedParty
+    observer pledgor, custodian
+
+    choice MarginCall_MarkFulfilled : ContractId MarginCall
+      controller custodian
+      do
+        create this with fulfilled = True
+
+-- | The other party to a proposed call -- whichever of pledgor/securedParty
+-- did not propose it.
+counterpartyOf : CollateralCall -> Party
+counterpartyOf c = if c.proposer == c.pledgor then c.securedParty else c.pledgor
+
+-- | A proposed movement of collateral: delivery, substitution, or return.
+-- Moves Outstanding -> Agreed/Disputed -> Settled, mirroring ex-collateral's
+-- Call state machine. The eligibility gate runs at Agree time: an
+-- ineligible asset type is rejected before it can ever be agreed, let
+-- alone settled.
+template CollateralCall
+  with
+    pledgor : Party
+    securedParty : Party
+    custodian : Party
+    agreementId : Text
+    proposer : Party
+    action : CallAction
+    status : CallStatus
+  where
+    signatory pledgor, securedParty
+    observer custodian
+
+    choice Call_Agree : ContractId CollateralCall
+      with
+        agreementCid : ContractId CollateralAgreement
+      controller counterpartyOf this
+      do
+        assertMsg "Call must be Outstanding to agree" (status == Outstanding)
+        agreement <- fetch agreementCid
+        let eligibleTypes = map (\c -> c.assetType) agreement.eligibilityCriteria
+            assetsInvolved = case action of
+              Delivery asset -> [asset]
+              Return asset -> [asset]
+              Substitution _outgoing incoming -> [incoming]
+        assertMsg
+          "Call rejected: asset type is not on the agreed eligibility schedule"
+          (all (\a -> a.assetType `elem` eligibleTypes) assetsInvolved)
+        create this with status = Agreed
+
+    choice Call_Dispute : ContractId CollateralCall
+      with
+        reason : Text
+      controller counterpartyOf this
+      do
+        assertMsg "Call must be Outstanding to dispute" (status == Outstanding)
+        create this with status = Disputed reason
+
+    choice Call_Settle : (ContractId CollateralCall, ContractId CollateralAgreementState)
+      with
+        stateCid : ContractId CollateralAgreementState
+      controller custodian
+      do
+        assertMsg "Call must be Agreed to settle" (status == Agreed)
+        newStateCid <- exercise stateCid State_ApplyCall with action
+        newCallCid <- create this with status = Settled
+        return (newCallCid, newStateCid)

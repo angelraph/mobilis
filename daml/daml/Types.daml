@@ -1,0 +1,48 @@
+module Types where
+
+-- | The four roles in a Mobilis collateral relationship.
+-- pledgor      : posts collateral against an exposure (a.k.a. borrower).
+-- securedParty : holds the exposure and calls for collateral (a.k.a. lender).
+-- custodian    : the triparty/settlement agent who executes movements and
+--                is the only party positioned to produce the regulator report.
+-- regulator    : observer-only; sees a computed summary, never the raw book.
+
+-- | One asset eligible under an agreement, with the haircut applied when it
+-- is used to cover an exposure. Modeled after the eligibility-criterion /
+-- haircut pattern in Digital Asset's ex-collateral reference.
+data EligibilityCriterion = EligibilityCriterion
+  with
+    assetType : Text     -- e.g. "UST-BILL", "IG-CORP-BOND", "CASH-USD"
+    maxHaircut : Decimal -- e.g. 0.02 for a 2% haircut
+  deriving (Eq, Show)
+
+-- | A single posted collateral position, tracked on the agreement's running
+-- schedule (ex-collateral's "CollateralAgreementState").
+data PostedAsset = PostedAsset
+  with
+    assetType : Text
+    faceValue : Decimal
+    postedValue : Decimal -- faceValue after haircut
+  deriving (Eq, Show)
+
+-- | Direction of a margin call relative to the secured party.
+data CallDirection
+  = NeedsMoreCollateral
+  | ExcessCollateral
+  deriving (Eq, Show)
+
+-- | Mirrors ex-collateral's three call types.
+data CallAction
+  = Delivery with asset : PostedAsset
+  | Substitution with outgoing : PostedAsset, incoming : PostedAsset
+  | Return with asset : PostedAsset
+  deriving (Eq, Show)
+
+-- | Mirrors ex-collateral's Outstanding -> Disputed/Agreed -> Settled
+-- state machine for a call.
+data CallStatus
+  = Outstanding
+  | Disputed with reason : Text
+  | Agreed
+  | Settled
+  deriving (Eq, Show)

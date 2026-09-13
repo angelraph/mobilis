@@ -1,0 +1,23 @@
+module AuditReport where
+
+-- | The ONLY contract type the regulator is ever made an observer on.
+-- Everything else in this app (the agreement, its live schedule, every
+-- individual call) is visible only to pledgor, securedParty, and the
+-- custodian who settles movements. This template is deliberately a
+-- reduced, computed summary -- never the raw per-call ledger -- and is
+-- the concrete proof-point for the "sub-transaction privacy" pitch.
+template AuditReport
+  with
+    custodian : Party
+    regulator : Party
+    pledgor : Party
+    securedParty : Party
+    agreementId : Text
+    asOfNote : Text                        -- a logical timestamp/tag for the demo, e.g. "End of Day 1"
+    totalPostedValue : Decimal
+    positionsByAssetType : [(Text, Decimal)]
+    eligibilityBreaches : [Text]           -- asset types posted that are NOT on the agreed schedule
+    narrative : Text                       -- plain-English summary (candidate slot for the light AI feature)
+  where
+    signatory custodian
+    observer regulator

@@ -1,0 +1,109 @@
+module Setup where
+
+import Daml.Script
+import Types
+import CollateralAgreement
+import AuditReport
+
+-- | End-to-end demo scenario for Mobilis: allocates the four parties,
+-- opens a collateral agreement, runs one delivery, one margin call, one
+-- substitution, generates an audit report, and then queries the ledger
+-- as each party to prove the privacy model out loud. Run with
+-- `daml script --dar .daml/dist/mobilis-0.1.0.dar --script-name Setup:setup`
+-- (or just open this file in the IDE and click "Script results").
+setup : Script ()
+setup = script do
+  pledgor <- allocatePartyWithHint "Pledgor" (PartyIdHint "Pledgor")
+  securedParty <- allocatePartyWithHint "SecuredParty" (PartyIdHint "SecuredParty")
+  custodian <- allocatePartyWithHint "Custodian" (PartyIdHint "Custodian")
+  regulator <- allocatePartyWithHint "Regulator" (PartyIdHint "Regulator")
+
+  let criteria =
+        [ EligibilityCriterion with assetType = "UST-BILL", maxHaircut = 0.02
+        , EligibilityCriterion with assetType = "IG-CORP-BOND", maxHaircut = 0.05
+        ]
+
+  agreementCid <- submitMulti [pledgor, securedParty] [] do
+    createCmd CollateralAgreement with
+      pledgor
+      securedParty
+      custodian
+      regulator
+      agreementId = "MOBILIS-CA-0001"
+      eligibilityCriteria = criteria
+
+  stateCid0 <- submit custodian do
+    exerciseCmd agreementCid CollateralAgreement_OpenState
+
+  -- 1. Delivery: pledgor posts an initial UST bill against the agreement.
+  let ustAsset = PostedAsset with assetType = "UST-BILL", faceValue = 1000000.0, postedValue = 980000.0
+  deliveryCallCid <- submit pledgor do
+    exerciseCmd agreementCid CollateralAgreement_ProposeCall with
+      proposer = pledgor
+      action = Delivery with asset = ustAsset
+
+  deliveryAgreedCid <- submit securedParty do
+    exerciseCmd deliveryCallCid Call_Agree with agreementCid
+
+  (_, stateCid1) <- submit custodian do
+    exerciseCmd deliveryAgreedCid Call_Settle with stateCid = stateCid0
+
+  -- 2. Margin call: exposure moved, secured party wants more collateral.
+  marginCallCid <- submit securedParty do
+    exerciseCmd agreementCid CollateralAgreement_RequestMarginCall with
+      amount = 50000.0
+      direction = NeedsMoreCollateral
+
+  -- 3. Substitution: pledgor swaps the UST bill for an eligible IG corp
+  -- bond -- the flagship atomic, multi-party demo moment.
+  let corpAsset = PostedAsset with assetType = "IG-CORP-BOND", faceValue = 1000000.0, postedValue = 950000.0
+  subCallCid <- submit pledgor do
+    exerciseCmd agreementCid CollateralAgreement_ProposeCall with
+      proposer = pledgor
+      action = Substitution with outgoing = ustAsset, incoming = corpAsset
+
+  subAgreedCid <- submit securedParty do
+    exerciseCmd subCallCid Call_Agree with agreementCid
+
+  (_, stateCid2) <- submit custodian do
+    exerciseCmd subAgreedCid Call_Settle with stateCid = stateCid1
+
+  _ <- submit custodian do
+    exerciseCmd marginCallCid MarginCall_MarkFulfilled
+
+  -- 3b. Negative case for the demo: propose substituting in an asset type
+  -- that was never on the eligibility schedule, and watch it get rejected
+  -- at Agree time rather than silently settling.
+  let junkAsset = PostedAsset with assetType = "HY-BOND", faceValue = 500000.0, postedValue = 400000.0
+  badCallCid <- submit pledgor do
+    exerciseCmd agreementCid CollateralAgreement_ProposeCall with
+      proposer = pledgor
+      action = Substitution with outgoing = corpAsset, incoming = junkAsset
+  -- Uncomment to see it fail loudly in the script output:
+  -- _ <- submit securedParty do exerciseCmd badCallCid Call_Agree with agreementCid
+  _ <- submit securedParty do
+    exerciseCmd badCallCid Call_Dispute with reason = "HY-BOND is not on the agreed eligibility schedule"
+
+  -- 4. Audit report: custodian generates it. The regulator's participant
+  -- can only ever hold this one contract type for this agreement.
+  reportCid <- submit custodian do
+    exerciseCmd stateCid2 State_GenerateAuditReport with
+      agreementCid
+      asOfNote = "End of Day 1"
+      narrativeOverride = None
+
+  -- 5. Privacy check: query the ledger as each party and print counts.
+  -- This is the assertion that matters most before the live demo.
+  regulatorReports <- query @AuditReport regulator
+  regulatorCalls <- query @CollateralCall regulator
+  regulatorState <- query @CollateralAgreementState regulator
+  pledgorCalls <- query @CollateralCall pledgor
+  custodianState <- query @CollateralAgreementState custodian
+
+  debug ("Regulator sees " <> show (length regulatorReports) <> " audit report(s) -- expect 1")
+  debug ("Regulator sees " <> show (length regulatorCalls) <> " raw collateral call(s) -- expect 0")
+  debug ("Regulator sees " <> show (length regulatorState) <> " raw schedule state(s) -- expect 0")
+  debug ("Pledgor sees " <> show (length pledgorCalls) <> " collateral call(s) it is party to")
+  debug ("Custodian sees " <> show (length custodianState) <> " live schedule state(s)")
+
+  return ()
