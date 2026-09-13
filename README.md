@@ -33,6 +33,10 @@ See [docs/business-brief.md](docs/business-brief.md) for the full ICP,
 who-pays, and pilot-plan writeup, and
 [docs/pitch-outline.md](docs/pitch-outline.md) for the live-pitch structure.
 
+New here and want the system explained from scratch, diagrams included,
+before diving into code? Start with
+[docs/architecture.md](docs/architecture.md).
+
 ## The workflow
 
 ```
@@ -83,11 +87,12 @@ ui/                  the role-switcher UI, a static page served by the JSON API
 scripts/
   generate-config.sh   regenerates ui/config.js after every 'daml build'
 docs/
-  business-brief.md      the track's required 1-page business brief
-  pitch-outline.md       the live-final pitch cue-card (beats and timing)
-  pitch-script.md        the full word-for-word script behind it
-  setup-guide.md         how the Daml SDK is set up and how to run this project
-  devnet-deployment.md   checklist for when real DevNet access lands
+  architecture.md         how the system works and how to test it, for a first-time reader
+  business-brief.md       the track's required 1-page business brief
+  pitch-outline.md        the live-final pitch cue-card (beats and timing)
+  pitch-script.md         the full word-for-word script behind it
+  setup-guide.md          how the Daml SDK is set up and how to run this project
+  devnet-deployment.md    checklist for when real DevNet access lands
 ```
 
 ## The role-switcher UI

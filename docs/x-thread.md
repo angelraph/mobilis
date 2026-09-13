@@ -4,10 +4,9 @@ Copy-paste ready, one tweet per numbered block. Written tight enough to
 fit inside the classic 280-character limit; check length in the composer
 before posting since exact wrapping varies.
 
-Before posting: the GitHub repo is currently **private**. Tweet 10 links
-to it. Either make the repo public first, or pull that link and keep the
-thread pointed at the Vercel preview only. Your call, not something to
-flip silently.
+Before posting: the GitHub repo is currently **private**, and tweet 10
+links straight to it. Make it public before posting, or the link is
+useless to anyone who clicks it.
 
 Suggested visuals: attach a screenshot or short screen recording to tweet
 5 (the regulator's one-report screen) and tweet 6 (the rejected
@@ -80,10 +79,8 @@ into current Daml syntax, then built the audit/reporting layer on top,
 the part institutions need that the reference doesn't ship.
 
 **10/**
-Live preview (sample data, no backend attached, just the UI):
-https://mobilis-angelraphs-projects.vercel.app
-
-Source: [repo link once public]
+Full source, architecture diagram, and how to run it yourself:
+https://github.com/angelraph/mobilis
 
 Solo build. Started from zero Daml experience about a week and a half
 ago.
