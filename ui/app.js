@@ -560,13 +560,27 @@ function renderCalls() {
 
 function renderProposeForm() {
   if (state.role !== "Pledgor" && state.role !== "SecuredParty") return null;
+
+  // Default the substitution fields to what is actually posted right now,
+  // not a fixed guess -- a live demo shouldn't depend on the presenter
+  // remembering to retype the correct outgoing asset type every time.
+  const currentSchedule = state.data.agreementState ? state.data.agreementState.payload.schedule : [];
+  const currentAsset = currentSchedule[0];
+  const eligibleTypes = state.data.agreement
+    ? state.data.agreement.payload.eligibilityCriteria.map((c) => c.assetType)
+    : ["UST-BILL", "IG-CORP-BOND"];
+  const defaultOutType = currentAsset ? currentAsset.assetType : eligibleTypes[0] || "UST-BILL";
+  const defaultInType = eligibleTypes.find((t) => t !== defaultOutType) || eligibleTypes[0] || "IG-CORP-BOND";
+  const defaultInFace = currentAsset ? currentAsset.faceValue : "1000000";
+  const defaultInPosted = currentAsset ? currentAsset.postedValue : "950000";
+
   const assetTypeIn = el("input", { placeholder: "Asset type, e.g. UST-BILL", value: "UST-BILL" });
   const faceIn = el("input", { placeholder: "Face value", value: "1000000" });
   const postedIn = el("input", { placeholder: "Posted value", value: "980000" });
-  const outTypeIn = el("input", { placeholder: "Outgoing asset type", value: "UST-BILL" });
-  const inTypeIn = el("input", { placeholder: "Incoming asset type", value: "IG-CORP-BOND" });
-  const inFaceIn = el("input", { placeholder: "Incoming face value", value: "1000000" });
-  const inPostedIn = el("input", { placeholder: "Incoming posted value", value: "950000" });
+  const outTypeIn = el("input", { placeholder: "Outgoing asset type", value: defaultOutType });
+  const inTypeIn = el("input", { placeholder: "Incoming asset type", value: defaultInType });
+  const inFaceIn = el("input", { placeholder: "Incoming face value", value: defaultInFace });
+  const inPostedIn = el("input", { placeholder: "Incoming posted value", value: defaultInPosted });
 
   const deliveryRow = el("div", { class: "form-row" }, [
     assetTypeIn,
