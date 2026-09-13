@@ -155,7 +155,12 @@ Daml SDK and JDK are installed on this machine) and what's next.
 
 ## Not yet built
 
-The light AI feature (report narrative or eligibility anomaly flag) and
-DevNet deployment. The role-switcher UI is done: see above.
+DevNet deployment. It's gated behind the hackathon's own onboarding
+(opens with the Delivery phase, not self-serviceable today) rather than
+something to build ahead of time; see
+[docs/devnet-deployment.md](docs/devnet-deployment.md) for the checklist
+to run through the moment access lands, including the one thing in this
+repo that is explicitly not ready for a real network (the local-dev auth
+in `ui/app.js`).
 
 See the plan file this was scaffolded from for the week-by-week build order.
