@@ -139,6 +139,7 @@ const state = {
   data: { agreement: null, agreementState: null, marginCalls: [], calls: [], reports: [] },
   error: null,
   busy: false,
+  mock: false,
   aiBusy: false,
   draftNarrative: null, // the custodian's in-progress report narrative; reset to null after each successful report
 };
@@ -187,7 +188,21 @@ async function loadRole(role) {
   await refresh();
 }
 
+function sampleDataFor(role) {
+  const s = window.MOBILIS_SAMPLE;
+  if (role === "Regulator") {
+    return { agreement: null, agreementState: null, marginCalls: [], calls: [], reports: s.reports };
+  }
+  return { agreement: s.agreement, agreementState: s.agreementState, marginCalls: s.marginCalls, calls: s.calls, reports: s.reports };
+}
+
 async function refresh() {
+  if (state.mock) {
+    state.data = sampleDataFor(state.role);
+    state.error = null;
+    render();
+    return;
+  }
   if (!state.token) return;
   try {
     const [agreements, states, marginCalls, calls, reports] = await Promise.all([
@@ -215,6 +230,11 @@ async function refresh() {
 }
 
 async function runAction(fn) {
+  if (state.mock) {
+    state.error = "This is a static preview with sample data — no ledger is connected. Run this locally to try actions (see docs/setup-guide.md in the repo).";
+    render();
+    return;
+  }
   state.busy = true;
   render();
   try {
@@ -636,6 +656,11 @@ function renderCustodianTools() {
     text: state.aiBusy ? "Drafting…" : "Draft with AI",
     onclick: async () => {
       if (state.aiBusy) return;
+      if (state.mock) {
+        state.error = "This is a static preview with sample data — the AI drafting proxy isn't reachable here. Run this locally to try it (see docs/setup-guide.md in the repo).";
+        render();
+        return;
+      }
       state.aiBusy = true;
       render();
       try {
@@ -726,6 +751,15 @@ function renderVisibilityNote() {
 function renderBody() {
   app.appendChild(renderRoleSwitcher());
 
+  if (state.mock) {
+    app.appendChild(
+      el("div", { class: "preview-banner" }, [
+        el("strong", { text: "Static preview — sample data. " }),
+        el("span", { text: "No Daml ledger is connected here. Run this locally to see it live and try the actions (see docs/setup-guide.md in the repo)." }),
+      ])
+    );
+  }
+
   if (!state.role) {
     app.appendChild(
       el("div", { class: "intro" }, [
@@ -783,9 +817,11 @@ async function boot() {
   try {
     state.parties = await fetchPartyDirectory();
   } catch (e) {
-    state.error = `Could not reach the ledger: ${e.message}`;
-    render();
-    return;
+    // No reachable JSON API (e.g. this build is deployed somewhere with no
+    // local Daml sandbox behind it). Fall back to a bundled, clearly-labeled
+    // sample dataset rather than showing a wall of connection errors.
+    state.mock = true;
+    state.parties = window.MOBILIS_SAMPLE.parties;
   }
   const params = new URLSearchParams(location.search);
   const initialRole = params.get("role") || localStorage.getItem("mobilis-role");
@@ -794,12 +830,14 @@ async function boot() {
   } else {
     render();
   }
-  setInterval(() => {
-    // Don't let a background poll silently wipe an error a user action just
-    // surfaced (e.g. a rejected ineligible substitution) before they've had
-    // a chance to read it. The explicit Refresh button still always clears it.
-    if (state.role && !state.busy && !state.error) refresh();
-  }, 4000);
+  if (!state.mock) {
+    setInterval(() => {
+      // Don't let a background poll silently wipe an error a user action just
+      // surfaced (e.g. a rejected ineligible substitution) before they've had
+      // a chance to read it. The explicit Refresh button still always clears it.
+      if (state.role && !state.busy && !state.error) refresh();
+    }, 4000);
+  }
 }
 
 boot();

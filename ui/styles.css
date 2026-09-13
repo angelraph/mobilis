@@ -138,6 +138,16 @@ html, body {
   border-radius: 6px;
 }
 
+.preview-banner {
+  background: #fff4d9;
+  color: #6b4d0a;
+  border: 1px solid #f0d896;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
 .error {
   background: var(--warning-bg);
   color: var(--warning-text);
