@@ -3,6 +3,11 @@
 Target: about 4 to 5 minutes for the live Grand Final. Trim the middle for
 a shorter submission-round version.
 
+This is the cue-card version: beats and timing, for glancing at while
+presenting. The full word-for-word script, with the Priya scenario that
+grounds the whole pitch, is in [pitch-script.md](pitch-script.md). Learn
+that once, present from this.
+
 ## 1. The problem (30s)
 
 Open with a number, not a slide of logos. €1.6 to 8B a year in manual

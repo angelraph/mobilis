@@ -83,9 +83,11 @@ ui/                  the role-switcher UI, a static page served by the JSON API
 scripts/
   generate-config.sh   regenerates ui/config.js after every 'daml build'
 docs/
-  business-brief.md   the track's required 1-page business brief
-  pitch-outline.md    the live-final pitch structure
-  setup-guide.md      how the Daml SDK is set up and how to run this project
+  business-brief.md      the track's required 1-page business brief
+  pitch-outline.md       the live-final pitch cue-card (beats and timing)
+  pitch-script.md        the full word-for-word script behind it
+  setup-guide.md         how the Daml SDK is set up and how to run this project
+  devnet-deployment.md   checklist for when real DevNet access lands
 ```
 
 ## The role-switcher UI
