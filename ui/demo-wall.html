@@ -4,29 +4,38 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mobilis · four views</title>
+<link rel="icon" type="image/png" href="media/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Geist+Mono:wght@400;500&display=swap">
 <style>
   :root {
-    --bg: #11181a;
-    --panel: #1b2426;
-    --text: #eef2f0;
-    --muted: #9fb0ab;
-    --accent: #6fd3b0;
+    --bg: #020c16;
+    --panel: #06182a;
+    --line: #16334e;
+    --text: #eaf2f8;
+    --muted: #8ba3b9;
+    --accent: #2bb3f0;
+    --lime: #6fd0b2;
+    --ribbon: linear-gradient(100deg, #635bff 0%, #2bb3f0 45%, #6fd0b2 100%);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  body { background: radial-gradient(900px 500px at 100% 0%, rgba(255, 160, 40, 0.10), transparent 60%), radial-gradient(800px 600px at 0% 0%, rgba(43, 179, 240, 0.10), transparent 60%), var(--bg); }
   body { display: flex; flex-direction: column; }
   header {
     display: flex; align-items: center; gap: 16px;
     padding: 12px 20px; min-height: 88px;
-    border-bottom: 1px solid #2a3538;
+    border-bottom: 1px solid var(--line);
   }
   .mark {
     width: 36px; height: 36px; border-radius: 8px; flex: none;
     display: grid; place-items: center; font-weight: 700;
-    background: var(--accent); color: #0d1f1a;
+    object-fit: cover; box-shadow: 0 0 24px rgba(111, 208, 178, 0.3);
   }
-  .caption { font-size: 22px; line-height: 1.3; }
-  .caption small { display: block; font-size: 15px; color: var(--muted); margin-top: 2px; }
+  .caption { font-size: 26px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.25; animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .caption small { display: block; font-size: 15px; font-weight: 400; letter-spacing: 0; color: var(--muted); margin-top: 4px; }
   main {
     flex: 1; display: grid; gap: 10px; padding: 10px;
     grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
@@ -34,16 +43,16 @@
   }
   /* overflow: clip (not hidden) so scrolling inside a role's view can
      never scroll the quadrant itself and shift the frame out of place. */
-  .view { position: relative; background: var(--panel); border-radius: 10px; overflow: clip; min-height: 0; transition: box-shadow 0.3s; }
-  .view.active { box-shadow: 0 0 0 3px var(--accent); }
+  .view { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: clip; min-height: 0; transition: box-shadow 0.3s; }
+  .view.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 40px -8px rgba(43, 179, 240, 0.6); }
   .label {
-    position: absolute; top: 8px; right: 10px; z-index: 2;
-    font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-    background: rgba(17, 24, 26, 0.85); color: var(--accent); padding: 3px 8px; border-radius: 6px;
+    position: absolute; top: 12px; right: 14px; z-index: 2; pointer-events: none;
+    font-family: "Geist Mono", monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+    background: rgba(2, 12, 22, 0.85); color: var(--lime); padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line);
   }
   /* Render each role at desktop width, scaled to fit its quadrant. */
   iframe {
-    border: 0; background: #fff;
+    border: 0; background: var(--bg);
     width: 133.33%; height: 133.33%;
     transform: scale(0.75); transform-origin: 0 0;
   }
@@ -54,7 +63,7 @@
 </head>
 <body>
 <header>
-  <div class="mark">M</div>
+  <img class="mark" src="media/mark.png" alt="Mobilis">
   <div class="caption" id="caption">One Canton transaction, four different views of it.<small>Pledgor · Secured Party · Custodian · Regulator</small></div>
 </header>
 <main>
@@ -69,6 +78,7 @@
   window.setCaption = (title, sub) => {
     const el = document.getElementById("caption");
     el.textContent = title;
+    el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
     if (sub) {
       const s = document.createElement("small");
       s.textContent = sub;

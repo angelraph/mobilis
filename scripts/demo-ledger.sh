@@ -25,10 +25,13 @@ SANDBOX=$!
 trap 'kill $SANDBOX $JSONAPI 2>/dev/null' EXIT INT TERM
 JSONAPI=""
 
-# Wait for the ledger, then create the demo's starting state.
-until daml script --dar "$DAR" --script-name Setup:demoStart --ledger-host localhost --ledger-port 6865 2>/dev/null; do
+# Wait until the ledger answers, then create the demo's starting state
+# exactly once (retrying the script itself would re-allocate parties that
+# a half-finished first attempt already created).
+until daml ledger list-parties --host localhost --port 6865 >/dev/null 2>&1; do
   sleep 2
 done
+daml script --dar "$DAR" --script-name Setup:demoStart --ledger-host localhost --ledger-port 6865
 
 daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
   --allow-insecure-tokens --static-content "prefix=ui,directory=$UI_DIR" &

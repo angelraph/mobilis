@@ -154,6 +154,9 @@ const state = {
   mock: false,
   aiBusy: false,
   draftNarrative: null, // the custodian's in-progress report narrative; reset to null after each successful report
+  errorKind: "ledger", // "ledger" = the ledger refused an action; "info" = anything else
+  lastCoverage: null, // coverage ratio at the previous render, so the gauge animates from it
+  seenStatus: {}, // contractId -> last rendered status, to flash rows that just changed
   suggestion: null, // the pledgor's latest optimiser result
   suggestRelease: "", // asset type the pledgor wants back ("" = any)
   suggestGoal: "Free up our Treasuries for a repo this afternoon at the lowest funding cost",
@@ -213,6 +216,7 @@ async function loadRole(role) {
   state.partyId = state.parties[role];
   state.error = null;
   if (!state.partyId) {
+    state.errorKind = "info";
     state.error = `No party found for role "${role}". Has the Setup:setup script been run?`;
     render();
     return;
@@ -225,6 +229,11 @@ async function loadRole(role) {
   // Draw the role's (possibly empty) view now: refresh() skips redrawing
   // when the data hasn't changed, which for a role with nothing visible
   // yet (a regulator before its first report) would leave the intro up.
+  // Cards rise in once per role switch, not on every refresh.
+  state.lastCoverage = null;
+  state.seenStatus = {};
+  document.body.classList.add("entering");
+  setTimeout(() => document.body.classList.remove("entering"), 1200);
   render();
   await refresh();
 }
@@ -265,6 +274,7 @@ async function refresh() {
     state.error = null;
     if (unchanged) return; // nothing to redraw; avoids flicker and scroll jumps on idle polling
   } catch (e) {
+    state.errorKind = "info";
     state.error = e.message;
   }
   render();
@@ -272,6 +282,7 @@ async function refresh() {
 
 async function runAction(fn) {
   if (state.mock) {
+    state.errorKind = "info";
     state.error = "This is a static preview with sample data. No ledger is connected. Run this locally to try actions (see docs/setup-guide.md in the repo).";
     render();
     return;
@@ -282,6 +293,7 @@ async function runAction(fn) {
     await fn();
     await refresh();
   } catch (e) {
+    state.errorKind = "ledger";
     state.error = e.message;
     render();
   } finally {
@@ -523,10 +535,11 @@ function emptyState(text) {
 
 function renderRoleSwitcher() {
   const bar = el("div", { class: "role-bar" }, [
-    el("div", { class: "brand" }, [
-      el("span", { class: "brand-mark", text: "M" }),
+    el("a", { class: "brand", href: "home.html" }, [
+      el("img", { class: "brand-mark", src: "media/mark.png", alt: "" }),
       el("span", { text: "Mobilis" }),
     ]),
+    el("a", { class: "nav-link", href: "demo-wall.html", text: "Four views" }),
     el(
       "select",
       {
@@ -574,10 +587,19 @@ function renderAgreementCard() {
         el("div", { class: "coverage-figures" }, [
           el("span", { text: `Posted ${formatMoney(p.total)}` }),
           el("span", { text: `Required ${formatMoney(p.required)}` }),
-          el("strong", { text: `Coverage ${formatPct(p.coverageRatio)}` }),
+          // Starts at the previous value; animateCoverage() ticks it to the new one.
+          el("strong", {
+            class: "coverage-value",
+            "data-to": String(p.coverageRatio),
+            text: formatPct(state.lastCoverage ?? p.coverageRatio),
+          }),
         ]),
         el("div", { class: "coverage-bar" }, [
-          el("div", { class: "coverage-fill", style: `width: ${Math.min(100, p.coverageRatio * 100).toFixed(1)}%` }),
+          el("div", {
+            class: "coverage-fill",
+            "data-to": String(p.coverageRatio),
+            style: `width: ${Math.min(100, (state.lastCoverage ?? 0) * 100).toFixed(1)}%`,
+          }),
         ]),
         p.shortfall > 0 ? el("p", { class: "warning", text: `Shortfall: ${formatMoney(p.shortfall)}` }) : null,
       ])
@@ -621,7 +643,7 @@ function renderMarginCalls() {
   const calls = state.data.marginCalls;
   if (!calls.length) return card("Margin calls", [emptyState("No margin calls yet.")]);
   const rows = calls.map((mc) =>
-    el("tr", {}, [
+    el("tr", { class: rowClass(mc.contractId, mc.payload.status) }, [
       el("td", { "data-label": "Direction", text: mc.payload.direction }),
       el("td", { "data-label": "Amount", class: "num", text: formatMoney(mc.payload.amount) }),
       el("td", { "data-label": "Status" }, [
@@ -672,7 +694,7 @@ function renderCalls() {
     const status = statusBadge(c.payload.status);
     const canAgree = status === "Outstanding" && isCounterparty;
     const canSettle = status === "Agreed" && state.role === "Custodian";
-    return el("tr", {}, [
+    return el("tr", { class: rowClass(c.contractId, status) }, [
       el("td", { "data-label": "Call", text: actionLabel(c.payload.action) }),
       el("td", { "data-label": "Proposed by", text: c.payload.proposer.split("::")[0] }),
       el("td", { "data-label": "Status" }, [el("span", { class: `status status-${status.toLowerCase()}`, text: status })]),
@@ -839,6 +861,7 @@ function renderOptimiser() {
         state.suggestion = await suggestSubstitution();
         state.error = null;
       } catch (e) {
+        state.errorKind = "info";
         state.error = `Suggestion failed: ${e.message}`;
       } finally {
         state.aiBusy = false;
@@ -928,6 +951,7 @@ function renderCustodianTools() {
     onclick: async () => {
       if (state.aiBusy) return;
       if (state.mock) {
+        state.errorKind = "info";
         state.error = "This is a static preview with sample data. The AI drafting proxy isn't reachable here. Run this locally to try it (see docs/setup-guide.md in the repo).";
         render();
         return;
@@ -938,6 +962,7 @@ function renderCustodianTools() {
         state.draftNarrative = await draftNarrativeWithAI(noteIn.value);
         state.error = null;
       } catch (e) {
+        state.errorKind = "info";
         state.error = `AI drafting unavailable: ${e.message}`;
       } finally {
         state.aiBusy = false;
@@ -1044,7 +1069,7 @@ function renderBody() {
   if (!state.role) {
     app.appendChild(
       el("div", { class: "intro" }, [
-        el("h1", { text: "Pick a role to see its view of the ledger" }),
+        el("h1", {}, [document.createTextNode("One ledger. "), el("span", { text: "Four views." })]),
         el("p", {
           text: "Pledgor, Secured Party, and Custodian see the live agreement and every call. Regulator sees only the computed audit report. Open this page in four tabs, one per role, to run the full demo side by side.",
         }),
@@ -1061,7 +1086,13 @@ function renderBody() {
   );
 
   if (state.error) {
-    app.appendChild(el("div", { class: "error", text: state.error }));
+    const ledger = state.errorKind === "ledger";
+    app.appendChild(
+      el("div", { class: ledger ? "error" : "error info", role: "alert" }, [
+        el("span", { class: "error-title", text: ledger ? "Refused by the ledger" : "Notice" }),
+        document.createTextNode(state.error),
+      ])
+    );
   }
 
   app.appendChild(renderVisibilityNote());
@@ -1084,10 +1115,51 @@ function renderBody() {
   if (reports) app.appendChild(reports);
 }
 
+// Flash a row whose status changed (or that appeared) since the last render,
+// so a settlement or agreement landing from another party is noticeable.
+const nextSeen = {};
+function rowClass(contractKey, status) {
+  nextSeen[contractKey] = status;
+  const hadRows = Object.keys(state.seenStatus).length > 0;
+  return hadRows && state.seenStatus[contractKey] !== status ? "flash" : "";
+}
+
+// Tick the coverage figure and slide the bar from the previous render's
+// value to the new one, like a live market number.
+function animateCoverage() {
+  const fill = app.querySelector(".coverage-fill");
+  const value = app.querySelector(".coverage-value");
+  if (!fill || !value) {
+    state.lastCoverage = null;
+    return;
+  }
+  const to = parseFloat(value.dataset.to);
+  const from = state.lastCoverage ?? to;
+  state.lastCoverage = to;
+  requestAnimationFrame(() => {
+    fill.style.width = `${Math.min(100, to * 100).toFixed(1)}%`;
+  });
+  if (from === to) {
+    value.textContent = formatPct(to);
+    return;
+  }
+  const start = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / 1100);
+    const eased = 1 - Math.pow(1 - t, 3);
+    value.textContent = formatPct(from + (to - from) * eased);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function render() {
   const scrollY = window.scrollY;
   app.innerHTML = "";
+  for (const k of Object.keys(nextSeen)) delete nextSeen[k];
   renderBody();
+  if (Object.keys(nextSeen).length) state.seenStatus = { ...nextSeen };
+  animateCoverage();
   window.scrollTo(0, scrollY);
 }
 
@@ -1096,6 +1168,7 @@ function render() {
 // ---------------------------------------------------------------------
 
 async function boot() {
+  if (window.self !== window.top) document.body.classList.add("embedded");
   render();
   try {
     state.parties = await fetchPartyDirectory();

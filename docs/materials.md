@@ -138,14 +138,20 @@ easier first customer.
 - Quotes (with permission): **[FILL]**
 - Would-pilot answers or letters of intent: **[FILL]**
 
-### Baseline test: manual vs. Mobilis **[FILL]**
+### Baseline test: manual vs. Mobilis
+
+Mobilis side measured: a full margin cycle (margin call, top-up,
+fulfilment, substitution, report) takes **about 2 seconds of ledger time**
+(3 runs on a local Canton sandbox, 1.8 to 2.3 s), with every rule checked
+at every step. That excludes human reading and clicking time. The manual
+side is **[FILL]**.
 
 The same cycle run both ways: delivery, then a margin call, top-up,
 substitution and return, then a regulator report.
 
 | | Manual (spreadsheet + email) | Mobilis |
 |---|---|---|
-| Time for the full cycle | **[FILL]** | **[FILL]** |
+| Time for the full cycle | **[FILL]** | ~2 s ledger time + human review |
 | Reconciliation steps | **[FILL]** | 0 (one shared record) |
 | Rule breaches caught before settlement | **[FILL]** | All three rule types (eligibility, coverage, concentration) |
 
@@ -216,7 +222,7 @@ can't offer for regulated collateral.
 
 ### What the video shows
 
-Four browser tabs, one per role, all reading the same Canton ledger:
+All four roles on one screen, each reading the same Canton ledger:
 
 1. **Delivery:** the pledgor posts a UST bill with 1,000,000 face value.
    The ledger values it at 980,000 after the 2% haircut, whatever the
@@ -231,7 +237,7 @@ Four browser tabs, one per role, all reading the same Canton ledger:
    concentration limit, and the high-yield bond isn't eligible) and
    suggests cash. One click proposes it, the secured party agrees, and the
    custodian settles it atomically.
-5. **A bad move is blocked:** a return that would leave the book short is
+5. **A bad move is blocked:** a swap that would leave the book short is
    rejected by the ledger at Agree.
 6. **The regulator's screen:** one audit report showing coverage,
    positions, share of book and breaches, and nothing else. The regulator

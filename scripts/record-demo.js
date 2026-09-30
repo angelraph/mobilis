@@ -38,7 +38,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await btn.scrollIntoViewIfNeeded();
     await sleep(700);
     await btn.click();
-    await f.waitForFunction(() => !state.busy);
+    await f.waitForFunction(() => !state.busy, null, { timeout: 120000 });
     await sleep(500);
   };
   const top = (role) => fr(role).evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
