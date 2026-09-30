@@ -1,0 +1,26 @@
+{
+  "_comment": "Shared cases for the collateral rulebook. ui/rules.test.js checks ui/rules.js against them; scripts/gen-parity.py turns them into daml/daml/ParityCases.daml so the ledger's Valuation.checkMove is held to the same answers. Assets are {type, face}. expect.total is the posted value after the move, at the given prices.",
+  "criteria": [
+    { "assetType": "UST-BILL", "haircut": "0.02", "concentrationLimit": "1.0" },
+    { "assetType": "IG-CORP-BOND", "haircut": "0.05", "concentrationLimit": "0.6" },
+    { "assetType": "CASH-USD", "haircut": "0.0", "concentrationLimit": "1.0" }
+  ],
+  "cases": [
+    { "name": "deliveryAtPar", "prices": [], "required": 0, "schedule": [], "action": { "tag": "Delivery", "asset": { "type": "UST-BILL", "face": 1000000 } }, "expect": { "ok": true, "total": 980000 } },
+    { "name": "deliveryIneligible", "prices": [], "required": 0, "schedule": [], "action": { "tag": "Delivery", "asset": { "type": "HY-BOND", "face": 1000000 } }, "expect": { "ok": false, "rule": "eligibility" } },
+    { "name": "deliveryAtMarkedPrice", "prices": [["IG-CORP-BOND", 0.9]], "required": 0, "schedule": [{ "type": "UST-BILL", "face": 1000000 }], "action": { "tag": "Delivery", "asset": { "type": "IG-CORP-BOND", "face": 500000 } }, "expect": { "ok": true, "total": 1407500 } },
+    { "name": "deliveryOverConcentration", "prices": [], "required": 0, "schedule": [{ "type": "UST-BILL", "face": 1000000 }], "action": { "tag": "Delivery", "asset": { "type": "IG-CORP-BOND", "face": 2000000 } }, "expect": { "ok": false, "rule": "concentration" } },
+    { "name": "deliveryWhileShort", "prices": [], "required": 5000000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Delivery", "asset": { "type": "CASH-USD", "face": 100000 } }, "expect": { "ok": true, "total": 1555000 } },
+    { "name": "returnCovered", "prices": [], "required": 400000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Return", "asset": { "type": "IG-CORP-BOND", "face": 500000 } }, "expect": { "ok": true, "total": 980000 } },
+    { "name": "returnLeavesShort", "prices": [], "required": 1400000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Return", "asset": { "type": "IG-CORP-BOND", "face": 500000 } }, "expect": { "ok": false, "rule": "coverage" } },
+    { "name": "returnNotPosted", "prices": [], "required": 0, "schedule": [{ "type": "UST-BILL", "face": 1000000 }], "action": { "tag": "Return", "asset": { "type": "UST-BILL", "face": 7 } }, "expect": { "ok": false, "rule": "posted" } },
+    { "name": "returnAtParOk", "prices": [], "required": 950000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Return", "asset": { "type": "IG-CORP-BOND", "face": 500000 } }, "expect": { "ok": true, "total": 980000 } },
+    { "name": "returnBlockedAfterPriceDrop", "prices": [["UST-BILL", 0.95]], "required": 950000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Return", "asset": { "type": "IG-CORP-BOND", "face": 500000 } }, "expect": { "ok": false, "rule": "coverage" } },
+    { "name": "returnLotAfterRemark", "prices": [["UST-BILL", 0.97]], "required": 0, "schedule": [{ "type": "UST-BILL", "face": 1000000 }], "action": { "tag": "Return", "asset": { "type": "UST-BILL", "face": 1000000 } }, "expect": { "ok": true, "total": 0 } },
+    { "name": "returnOneOfTwoLots", "prices": [], "required": 0, "schedule": [{ "type": "UST-BILL", "face": 100 }, { "type": "UST-BILL", "face": 100 }], "action": { "tag": "Return", "asset": { "type": "UST-BILL", "face": 100 } }, "expect": { "ok": true, "total": 98 } },
+    { "name": "substitutionOk", "prices": [], "required": 1400000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Substitution", "outgoing": { "type": "UST-BILL", "face": 1000000 }, "incoming": { "type": "CASH-USD", "face": 925000 } }, "expect": { "ok": true, "total": 1400000 } },
+    { "name": "substitutionLeavesShort", "prices": [], "required": 1400000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Substitution", "outgoing": { "type": "UST-BILL", "face": 1000000 }, "incoming": { "type": "CASH-USD", "face": 100 } }, "expect": { "ok": false, "rule": "coverage" } },
+    { "name": "substitutionOverConcentration", "prices": [], "required": 1400000, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Substitution", "outgoing": { "type": "UST-BILL", "face": 1000000 }, "incoming": { "type": "IG-CORP-BOND", "face": 2000000 } }, "expect": { "ok": false, "rule": "concentration" } },
+    { "name": "substitutionIneligible", "prices": [], "required": 0, "schedule": [{ "type": "UST-BILL", "face": 1000000 }, { "type": "IG-CORP-BOND", "face": 500000 }], "action": { "tag": "Substitution", "outgoing": { "type": "IG-CORP-BOND", "face": 500000 }, "incoming": { "type": "HY-BOND", "face": 500000 } }, "expect": { "ok": false, "rule": "eligibility" } }
+  ]
+}

@@ -1,12 +1,17 @@
 module Valuation where
 
-import DA.List (delete, dedup)
+import DA.List (dedup)
+import DA.Optional (fromOptional)
 import Types
 
 -- | Pure collateral math shared by the templates, the audit report and the
 -- tests. Keeping it here (not inline in choices) means there is exactly one
 -- definition of "eligible", "worth enough" and "too concentrated", and the
 -- ledger enforces that definition rather than any UI or AI suggestion.
+--
+-- Valuation: postedValue = faceValue * price * (1 - haircut), where price is
+-- the custodian's latest mark for the asset type (per 1.0 of face value;
+-- par = 1.0 until marked) and haircut comes from the agreement.
 
 -- | The criterion for an asset type, if it is on the schedule at all.
 criterionFor : [EligibilityCriterion] -> Text -> Optional EligibilityCriterion
@@ -14,20 +19,53 @@ criterionFor criteria t = case filter (\c -> c.assetType == t) criteria of
   c :: _ -> Some c
   [] -> None
 
--- | Recompute postedValue from the agreement's own haircut. An asset type
--- that is not on the schedule counts for nothing; it is rejected at Agree
--- time anyway, this just guarantees it can never add coverage.
-valueAsset : [EligibilityCriterion] -> PostedAsset -> PostedAsset
-valueAsset criteria a = case criterionFor criteria a.assetType of
-  Some c -> a with postedValue = a.faceValue * (1.0 - c.haircut)
+-- | The latest price mark for an asset type; par when none has been marked.
+priceFor : [(Text, Decimal)] -> Text -> Decimal
+priceFor prices t = fromOptional 1.0 (lookup t prices)
+
+-- | Value an asset at the given price marks and the agreement's haircut. An
+-- asset type that is not on the schedule counts for nothing; it is rejected
+-- at Agree time anyway, this just guarantees it can never add coverage.
+valueAssetAt : [EligibilityCriterion] -> [(Text, Decimal)] -> PostedAsset -> PostedAsset
+valueAssetAt criteria prices a = case criterionFor criteria a.assetType of
+  Some c -> a with postedValue = a.faceValue * priceFor prices a.assetType * (1.0 - c.haircut)
   None -> a with postedValue = 0.0
 
-valueAction : [EligibilityCriterion] -> CallAction -> CallAction
-valueAction criteria action = case action of
-  Delivery asset -> Delivery with asset = valueAsset criteria asset
-  Return asset -> Return with asset = valueAsset criteria asset
+-- | Value at par (no price marks). Used when a call is proposed, for
+-- display; every rule re-values at the live marks.
+valueAsset : [EligibilityCriterion] -> PostedAsset -> PostedAsset
+valueAsset criteria = valueAssetAt criteria []
+
+valueActionAt : [EligibilityCriterion] -> [(Text, Decimal)] -> CallAction -> CallAction
+valueActionAt criteria prices action = case action of
+  Delivery asset -> Delivery with asset = valueAssetAt criteria prices asset
+  Return asset -> Return with asset = valueAssetAt criteria prices asset
   Substitution outgoing incoming ->
-    Substitution with outgoing = valueAsset criteria outgoing, incoming = valueAsset criteria incoming
+    Substitution with outgoing = valueAssetAt criteria prices outgoing, incoming = valueAssetAt criteria prices incoming
+
+valueAction : [EligibilityCriterion] -> CallAction -> CallAction
+valueAction criteria = valueActionAt criteria []
+
+-- | Re-value a whole schedule at new price marks.
+revalue : [EligibilityCriterion] -> [(Text, Decimal)] -> [PostedAsset] -> [PostedAsset]
+revalue criteria prices = map (valueAssetAt criteria prices)
+
+-- | Merge new marks into the existing ones (a new mark replaces the old
+-- mark for the same asset type).
+applyMarks : [(Text, Decimal)] -> [PriceMark] -> [(Text, Decimal)]
+applyMarks prices marks =
+  let marked = map (\m -> m.assetType) marks
+  in map (\m -> (m.assetType, m.price)) marks ++ filter (\(t, _) -> t `notElem` marked) prices
+
+-- | Two positions are the same lot when asset type and face value match;
+-- postedValue is derived and changes with every re-mark.
+sameLot : PostedAsset -> PostedAsset -> Bool
+sameLot a b = a.assetType == b.assetType && a.faceValue == b.faceValue
+
+-- | Remove the first lot matching the given one.
+removeLot : PostedAsset -> [PostedAsset] -> [PostedAsset]
+removeLot _ [] = []
+removeLot a (x :: xs) = if sameLot a x then xs else x :: removeLot a xs
 
 totalPosted : [PostedAsset] -> Decimal
 totalPosted schedule = sum (map (\a -> a.postedValue) schedule)
@@ -63,10 +101,13 @@ coverageRatio : Decimal -> [PostedAsset] -> Decimal
 coverageRatio required schedule =
   if required <= 0.0 then 1.0 else totalPosted schedule / required
 
--- | Validate a movement against the live schedule and return the schedule
--- after it settles, or the reason it must be rejected. This is the single
--- rulebook both Call_Agree (early, so a bad call never reaches Agreed) and
--- State_ApplyCall (at settlement, against the then-current schedule) run.
+-- | Validate a movement against the live schedule, at the live price marks,
+-- and return the schedule after it settles, or the reason it must be
+-- rejected. This is the single rulebook both Call_Agree (early, so a bad
+-- call never reaches Agreed) and State_ApplyCall (at settlement, against
+-- the then-current schedule and marks) run. ui/rules.js mirrors it, and
+-- the parity cases (ParityCases.daml / ui/rules.test.js) hold both to the
+-- same answers.
 --
 -- Rules:
 --   1. every incoming asset type is on the eligibility schedule;
@@ -75,9 +116,10 @@ coverageRatio required schedule =
 --      below required collateral (a Delivery only ever adds, so it may
 --      settle even while a shortfall remains);
 --   4. no incoming asset type ends up over its concentration limit.
-checkMove : [EligibilityCriterion] -> Decimal -> [PostedAsset] -> CallAction -> Either Text [PostedAsset]
-checkMove criteria required schedule action = do
-  let incoming = case action of
+checkMove : [EligibilityCriterion] -> [(Text, Decimal)] -> Decimal -> [PostedAsset] -> CallAction -> Either Text [PostedAsset]
+checkMove criteria prices required schedule rawAction = do
+  let action = valueActionAt criteria prices rawAction
+      incoming = case action of
         Delivery asset -> [asset]
         Return _ -> []
         Substitution _ inAsset -> [inAsset]
@@ -85,13 +127,14 @@ checkMove criteria required schedule action = do
         Delivery _ -> []
         Return asset -> [asset]
         Substitution outAsset _ -> [outAsset]
+      posted = revalue criteria prices schedule
   case filter (\a -> criterionFor criteria a.assetType == None) incoming of
     a :: _ -> Left ("Rejected: " <> a.assetType <> " is not on the agreed eligibility schedule")
     [] -> Right ()
-  case filter (`notElem` schedule) outgoing of
+  case filter (\o -> not (any (sameLot o) posted)) outgoing of
     a :: _ -> Left ("Rejected: " <> a.assetType <> " being released is not currently posted")
     [] -> Right ()
-  let newSchedule = foldl (flip delete) schedule outgoing ++ incoming
+  let newSchedule = foldl (flip removeLot) posted outgoing ++ incoming
       newTotal = totalPosted newSchedule
       releases = not (null outgoing)
   if releases && newTotal < required
@@ -104,8 +147,8 @@ checkMove criteria required schedule action = do
   pure newSchedule
 
 -- | The same check as a plain assertion inside an Update.
-enforceMove : CanAbort m => [EligibilityCriterion] -> Decimal -> [PostedAsset] -> CallAction -> m [PostedAsset]
-enforceMove criteria required schedule action =
-  case checkMove criteria required schedule action of
+enforceMove : CanAbort m => [EligibilityCriterion] -> [(Text, Decimal)] -> Decimal -> [PostedAsset] -> CallAction -> m [PostedAsset]
+enforceMove criteria prices required schedule action =
+  case checkMove criteria prices required schedule action of
     Left err -> abort err
     Right s -> pure s

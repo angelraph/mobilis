@@ -50,6 +50,8 @@ window.MOBILIS_SAMPLE = {
       agreementId: "MOBILIS-CA-0001",
       eligibilityCriteria: CRITERIA,
       requiredCollateral: "1400000.0",
+      prices: [],
+      pricesAsOf: "Par (no marks yet)",
       schedule: [UST, CORP],
     },
   },
@@ -103,6 +105,7 @@ window.MOBILIS_SAMPLE = {
         totalPostedValue: "1455000.0",
         requiredCollateral: "1400000.0",
         coverageRatio: "1.0392857143",
+        valuationAsOf: "Par (no marks yet)",
         positionsByAssetType: [
           { _1: "UST-BILL", _2: "980000.0" },
           { _1: "IG-CORP-BOND", _2: "475000.0" },

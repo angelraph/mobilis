@@ -122,6 +122,7 @@ function buildPrompt(facts) {
     `Total posted value (after haircuts): ${facts.totalPostedValue}`,
     `Required collateral: ${facts.requiredCollateral}`,
     `Coverage ratio: ${(facts.coverageRatio * 100).toFixed(1)}%`,
+    `Valued at price marks: ${facts.valuationAsOf || "par"}`,
     `Positions by asset type: ${positions || "none"}`,
     `Share of book by asset type: ${shares || "none"}`,
     `Eligibility breaches: ${list(facts.eligibilityBreaches)}`,

@@ -188,6 +188,74 @@ test_valuationRules = do
   V.totalPosted book === 1455000.0
   V.coverageRatio 0.0 book === 1.0
   V.concentrationBreaches demoCriteria [V.valueAsset demoCriteria (mkAsset "IG-CORP-BOND" 1.0)] === ["IG-CORP-BOND"]
-  case V.checkMove demoCriteria 1400000.0 book (Return with asset = V.valueAsset demoCriteria (mkAsset "UST-BILL" 1000000.0)) of
+  case V.checkMove demoCriteria [] 1400000.0 book (Return with asset = V.valueAsset demoCriteria (mkAsset "UST-BILL" 1000000.0)) of
     Left _ -> pure ()
     Right _ -> abort "expected the return to be rejected"
+
+-- Price marks -----------------------------------------------------------
+
+markPrices : Env -> ContractId CollateralAgreementState -> [(Text, Decimal)] -> Script (ContractId CollateralAgreementState)
+markPrices env stateCid marks = submit env.custodian do
+  exerciseCmd stateCid State_MarkPrices with
+    marks = map (\(t, p) -> PriceMark with assetType = t, price = p) marks
+    asOf = "Day 2 close"
+
+-- A price drop re-values the book immediately, at face * price * (1 - haircut).
+test_priceMarkRevaluesBook : Script ()
+test_priceMarkRevaluesBook = do
+  (env, s3) <- coveredBook
+  s4 <- markPrices env s3 [("IG-CORP-BOND", 0.9)]
+  Some st <- queryContractId env.custodian s4
+  map (\a -> a.postedValue) st.schedule === [980000.0, 427500.0]
+  st.pricesAsOf === "Day 2 close"
+
+-- After a price drop leaves the book short, releases are refused until the
+-- pledgor tops up, and then they are allowed again.
+test_priceDropBlocksReleasesUntilTopUp : Script ()
+test_priceDropBlocksReleasesUntilTopUp = do
+  (env, s3) <- coveredBook
+  s4 <- markPrices env s3 [("IG-CORP-BOND", 0.8)]   -- corp now posts 380,000; total 1,360,000 < 1,400,000
+  callCid <- proposeAsPledgor env (Return with asset = mkAsset "IG-CORP-BOND" 500000.0)
+  submitMustFail env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s4
+  s5 <- move env s4 (Delivery with asset = mkAsset "CASH-USD" 100000.0)
+  Some st <- queryContractId env.custodian s5
+  V.totalPosted st.schedule === 1460000.0
+
+-- A margin call can't be marked fulfilled while a price drop has left the book short.
+test_priceDropUnfulfillsMarginCall : Script ()
+test_priceDropUnfulfillsMarginCall = do
+  (env, s0) <- initEnv
+  s1 <- move env s0 (Delivery with asset = mkAsset "UST-BILL" 1000000.0)
+  (s2, mcCid) <- marginCall env s1 900000.0
+  s3 <- markPrices env s2 [("UST-BILL", 0.9)]        -- 882,000 < 900,000
+  submitMustFail env.custodian do exerciseCmd mcCid MarginCall_MarkFulfilled with stateCid = s3
+
+-- A lot is matched by type and face value, so it can still be returned after a re-mark.
+test_returnAfterRemark : Script ()
+test_returnAfterRemark = do
+  (env, s0) <- initEnv
+  s1 <- move env s0 (Delivery with asset = mkAsset "UST-BILL" 1000000.0)
+  s2 <- markPrices env s1 [("UST-BILL", 0.97)]
+  s3 <- move env s2 (Return with asset = mkAsset "UST-BILL" 1000000.0)
+  Some st <- queryContractId env.custodian s3
+  st.schedule === []
+
+test_priceMarkRules : Script ()
+test_priceMarkRules = do
+  (env, s0) <- initEnv
+  -- only the custodian marks prices, and prices must be positive
+  submitMustFail env.pledgor do
+    exerciseCmd s0 State_MarkPrices with marks = [PriceMark with assetType = "UST-BILL", price = 0.5], asOf = "x"
+  submitMustFail env.custodian do
+    exerciseCmd s0 State_MarkPrices with marks = [PriceMark with assetType = "UST-BILL", price = 0.0], asOf = "x"
+
+-- The regulator's report says which marks its figures use.
+test_reportCarriesValuationDate : Script ()
+test_reportCarriesValuationDate = do
+  (env, s3) <- coveredBook
+  s4 <- markPrices env s3 [("IG-CORP-BOND", 0.9)]
+  reportCid <- submit env.custodian do
+    exerciseCmd s4 State_GenerateAuditReport with agreementCid = env.agreementCid, asOfNote = "EOD 2", narrativeOverride = None
+  Some r <- queryContractId env.regulator reportCid
+  r.valuationAsOf === "Day 2 close"
+  r.totalPostedValue === 1407500.0

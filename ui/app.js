@@ -170,10 +170,26 @@ function criteria() {
   return state.data.agreement ? state.data.agreement.payload.eligibilityCriteria : [];
 }
 
+// The custodian's latest price marks, as the JSON API sends them ({_1, _2} tuples).
+function prices() {
+  return state.data.agreementState ? state.data.agreementState.payload.prices || [] : [];
+}
+
 function previewPosted(assetType, faceValue) {
-  const c = criteria().find((x) => x.assetType === assetType);
-  const face = parseFloat(faceValue) || 0;
-  return c ? face * (1 - parseFloat(c.haircut)) : 0;
+  return window.MobilisRules.valueAsset(criteria(), { assetType, faceValue: parseFloat(faceValue) || 0 }, prices()).postedValue;
+}
+
+// The inputs every rules.js helper takes, from the live state.
+function rulesInput(extra) {
+  const s = state.data.agreementState.payload;
+  return {
+    criteria: s.eligibilityCriteria,
+    prices: s.prices || [],
+    required: s.requiredCollateral,
+    schedule: s.schedule,
+    inventory: DEMO_INVENTORY,
+    ...extra,
+  };
 }
 
 function totalPosted(schedule) {
@@ -185,8 +201,10 @@ function formatPct(v) {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+// A call's stored postedValue is its value when proposed; show what the lot
+// is worth at the current marks instead, which is what the rules use.
 function assetLabel(a) {
-  return `${a.assetType} · posted ${formatMoney(a.postedValue)} (face ${formatMoney(a.faceValue)})`;
+  return `${a.assetType} · face ${formatMoney(a.faceValue)} (${formatMoney(previewPosted(a.assetType, a.faceValue))} at current marks)`;
 }
 
 function formatMoney(v) {
@@ -387,6 +405,15 @@ async function settleCall(callId) {
   await exerciseChoice(state.token, TEMPLATE.Call, callId, "Call_Settle", { stateCid });
 }
 
+// The custodian marks a price to market; the ledger re-values the whole book.
+async function markPrice(assetType, price, asOf) {
+  const stateCid = state.data.agreementState.contractId;
+  await exerciseChoice(state.token, TEMPLATE.AgreementState, stateCid, "State_MarkPrices", {
+    marks: [{ assetType, price: String(price) }],
+    asOf,
+  });
+}
+
 async function applyMarginCall(marginCallId) {
   const stateCid = state.data.agreementState.contractId;
   await exerciseChoice(state.token, TEMPLATE.AgreementState, stateCid, "State_ApplyMarginCall", {
@@ -438,6 +465,8 @@ function positionSummary() {
     required,
     coverageRatio: required > 0 ? total / required : 1,
     shortfall: Math.max(0, required - total),
+    excess: required > 0 ? Math.max(0, total - required) : 0,
+    pricesAsOf: s.payload.pricesAsOf || "Par (no marks yet)",
     positions,
     concentration,
     eligibilityBreaches: Object.keys(positions).filter((t) => !(t in limits)),
@@ -468,6 +497,7 @@ async function draftNarrativeWithAI(asOfNote) {
       totalPostedValue: p.total,
       requiredCollateral: p.required,
       coverageRatio: p.coverageRatio,
+      valuationAsOf: p.pricesAsOf,
       positionsByAssetType: p.positions,
       concentrationByAssetType: p.concentration,
       eligibilityBreaches: p.eligibilityBreaches,
@@ -484,15 +514,7 @@ async function draftNarrativeWithAI(asOfNote) {
 // same rules locally and take the best-scoring valid move, so the panel
 // always works. Either way the ledger re-checks whatever gets proposed.
 async function suggestSubstitution() {
-  const s = state.data.agreementState;
-  const input = {
-    criteria: s.payload.eligibilityCriteria,
-    required: s.payload.requiredCollateral,
-    schedule: s.payload.schedule,
-    inventory: DEMO_INVENTORY,
-    release: state.suggestRelease || null,
-    goal: state.suggestGoal,
-  };
+  const input = rulesInput({ release: state.suggestRelease || null, goal: state.suggestGoal });
   if (!state.mock) {
     try {
       const res = await fetch(`${AI_PROXY_BASE}/suggest-substitution`, {
@@ -618,7 +640,20 @@ function renderAgreementCard() {
             style: `width: ${Math.min(100, (state.lastCoverage ?? 0) * 100).toFixed(1)}%`,
           }),
         ]),
-        p.shortfall > 0 ? el("p", { class: "warning", text: `Shortfall: ${formatMoney(p.shortfall)}` }) : null,
+        p.shortfall > 0
+          ? el("p", {
+              class: "warning",
+              text: `Shortfall: ${formatMoney(p.shortfall)}. The ledger refuses any return or swap that releases value until the book is topped up.`,
+            })
+          : null,
+        p.excess > 0 ? el("p", { class: "excess-note", text: `Excess: ${formatMoney(p.excess)} above the requirement, available to return.` }) : null,
+        el("div", { class: "marks" }, [
+          el("span", { class: "marks-label", text: `Valued at: ${p.pricesAsOf}` }),
+          ...criteria().map((c) => {
+            const px = window.MobilisRules.priceFor(prices(), c.assetType);
+            return el("span", { class: `mark-chip${px < 1 ? " down" : px > 1 ? " up" : ""}`, text: `${c.assetType} ${(px * 100).toFixed(2)}` });
+          }),
+        ]),
       ])
     : null;
   const schedule = s
@@ -824,6 +859,28 @@ function renderProposeForm() {
     }),
   ]);
 
+  // Return any posted lot (the ledger refuses it if the book would be left short).
+  const lotSel = el(
+    "select",
+    { "aria-label": "Posted lot to return" },
+    currentSchedule.length
+      ? currentSchedule.map((lot, i) => el("option", { value: String(i), text: `${lot.assetType} · face ${formatMoney(lot.faceValue)}` }))
+      : [el("option", { value: "", text: "Nothing posted yet" })]
+  );
+  const returnRow = el("div", { class: "form-row" }, [
+    lotSel,
+    el("button", {
+      class: "action secondary",
+      text: "Propose return",
+      onclick: () =>
+        runAction(() => {
+          const lot = currentSchedule[parseInt(lotSel.value, 10)];
+          if (!lot) throw new Error("Nothing is posted to return.");
+          return proposeReturn(lot.assetType, lot.faceValue);
+        }),
+    }),
+  ]);
+
   const marginCallRow =
     state.role === "SecuredParty"
       ? (() => {
@@ -845,11 +902,80 @@ function renderProposeForm() {
       : null;
 
   return card("Propose a movement", [
-    el("p", { class: "hint", text: "Delivery and substitution are proposed by either party and must be agreed by the counterparty, then settled by the custodian. The ledger values every asset from the agreed haircuts and refuses any move that breaks eligibility, coverage, or concentration limits." }),
+    el("p", { class: "hint", text: "Delivery, substitution and return are proposed by either party and must be agreed by the counterparty, then settled by the custodian. The ledger values every asset from the agreed haircuts and refuses any move that breaks eligibility, coverage, or concentration limits." }),
     deliveryRow,
     substitutionRow,
+    returnRow,
     marginCallRow,
   ]);
+}
+
+function renderCollateralActions() {
+  if ((state.role !== "Pledgor" && state.role !== "SecuredParty") || !state.data.agreementState) return null;
+  const p = positionSummary();
+  const R = window.MobilisRules;
+  const moneyFace = (a) => `${formatMoney(a.faceValue)} face of ${a.assetType}`;
+
+  if (state.role === "SecuredParty") {
+    if (p.shortfall <= 0) return null;
+    return card("Collateral actions", [
+      el("p", {
+        class: "warning",
+        text: `The book is ${formatMoney(p.shortfall)} short at the latest marks (${p.pricesAsOf}). The pledgor must top up, and the ledger refuses any release until coverage is back to 100%.`,
+      }),
+    ]);
+  }
+
+  const blocks = [];
+  if (p.shortfall > 0) {
+    const { options } = R.suggestTopUps(rulesInput());
+    const best = options.find((o) => o.valid);
+    blocks.push(
+      el("div", { class: "action-block" }, [
+        el("h3", { text: `Top up: the book is ${formatMoney(p.shortfall)} short` }),
+        el("p", { class: "hint", text: "The cheapest single delivery from inventory that restores full coverage, inside every limit." }),
+        ...options.slice(0, 3).map((o) =>
+          el("div", { class: `action-line${o === best ? " best" : ""}${o.valid ? "" : " blocked"}` }, [
+            el("span", { text: o.valid ? `Deliver ${moneyFace(o.asset)} (posts ${formatMoney(o.asset.postedValue)})` : `${o.asset.assetType}` }),
+            el("span", { class: "meta", text: o.valid ? `coverage after ${formatPct(o.coverageAfter)} · ~${formatMoney(o.annualCost)}/yr to pledge` : o.reason }),
+            o === best
+              ? el("button", {
+                  class: "action",
+                  text: "Propose top-up",
+                  onclick: () => runAction(() => proposeDelivery(o.asset.assetType, o.asset.faceValue)),
+                })
+              : null,
+          ])
+        ),
+      ])
+    );
+  }
+
+  const { excess, lots } = R.suggestReturns(rulesInput());
+  if (p.shortfall <= 0 && lots.length) {
+    blocks.push(
+      el("div", { class: "action-block" }, [
+        el("h3", { text: excess > 0 ? `Return excess: ${formatMoney(excess)} above the requirement` : "Return collateral" }),
+        el("p", { class: "hint", text: "Lots the ledger will let you take back without leaving the book short. The most expensive to keep pledged come first." }),
+        ...lots.map((l) =>
+          el("div", { class: `action-line${l.valid ? "" : " blocked"}` }, [
+            el("span", { text: `${moneyFace(l.asset)} (posted ${formatMoney(l.asset.postedValue)})` }),
+            el("span", { class: "meta", text: l.valid ? `coverage after ${formatPct(l.coverageAfter)}` : l.reason }),
+            l.valid
+              ? el("button", {
+                  class: "action secondary",
+                  text: "Propose return",
+                  onclick: () => runAction(() => proposeReturn(l.asset.assetType, l.asset.faceValue)),
+                })
+              : null,
+          ])
+        ),
+      ])
+    );
+  }
+
+  if (!blocks.length) return null;
+  return card("Collateral actions", blocks);
 }
 
 function renderOptimiser() {
@@ -988,7 +1114,35 @@ function renderCustodianTools() {
     },
   });
 
+  // Mark to market: the ledger re-values every posted lot at the new price.
+  const markTypeSel = el(
+    "select",
+    { "aria-label": "Asset type to mark" },
+    criteria().map((c) => el("option", { value: c.assetType, text: c.assetType }))
+  );
+  const markPriceIn = el("input", { placeholder: "Price per 100 face, e.g. 90", value: "90", inputmode: "decimal" });
+  const markAsOfIn = el("input", { placeholder: "As of, e.g. Day 2 close", value: "Day 2 close" });
+  const markRow = el("div", { class: "form-row" }, [
+    markTypeSel,
+    markPriceIn,
+    markAsOfIn,
+    el("button", {
+      class: "action",
+      text: "Mark price",
+      onclick: () =>
+        runAction(() => {
+          const px = parseFloat(markPriceIn.value) / 100;
+          if (!(px > 0)) throw new Error("Enter a positive price, e.g. 90 for 90% of face value.");
+          return markPrice(markTypeSel.value, px, markAsOfIn.value || "Latest marks");
+        }),
+    }),
+  ]);
+
   return card("Custodian tools", [
+    el("h3", { text: "Mark to market" }),
+    el("p", { class: "hint", text: "As valuation agent, publish a price per 100 of face value. The ledger re-values every posted lot at once: a drop can leave the book short, and releases are then refused until the pledgor tops up." }),
+    markRow,
+    el("h3", { text: "Regulator report" }),
     el("p", { class: "hint", text: "Generating a report is the only way information about this agreement ever reaches the regulator." }),
     el("div", { class: "form-row" }, [noteIn]),
     el("label", { class: "field-label", text: "Narrative (edit freely, or draft with AI, before committing)" }),
@@ -1017,7 +1171,7 @@ function renderReports() {
     return el("div", { class: "report" }, [
       el("div", { class: "report-head" }, [
         el("strong", { text: p.agreementId }),
-        el("span", { class: "muted", text: p.asOfNote }),
+        el("span", { class: "muted", text: `${p.asOfNote}${p.valuationAsOf ? ` · valued at ${p.valuationAsOf}` : ""}` }),
       ]),
       el("p", {
         class: "total",
@@ -1124,6 +1278,8 @@ function renderBody() {
   app.appendChild(renderAgreementCard());
   app.appendChild(renderMarginCalls());
   app.appendChild(renderCalls());
+  const actions = renderCollateralActions();
+  if (actions) app.appendChild(actions);
   const optimiser = renderOptimiser();
   if (optimiser) app.appendChild(optimiser);
   const proposeForm = renderProposeForm();

@@ -66,7 +66,13 @@
   #wall-back { color: var(--accent); }
   .wall-nav a.sample { color: #ffd09a; border-color: rgba(255, 160, 40, 0.4); background: rgba(255, 160, 40, 0.08); }
   @media (max-width: 900px) {
-    main { grid-template-columns: 1fr; grid-template-rows: repeat(4, 70vh); }
+    main { grid-template-columns: 1fr; grid-template-rows: repeat(4, 75vh); }
+    header { flex-wrap: wrap; gap: 10px 14px; padding: 12px 14px; min-height: 0; }
+    .caption { font-size: 19px; flex: 1 1 200px; min-width: 0; }
+    .caption small { font-size: 13px; }
+    .wall-nav { order: 3; width: 100%; margin-left: 0; flex-wrap: wrap; }
+    .wall-nav a { padding: 7px 12px; font-size: 13px; }
+    .mark { width: 30px; height: 30px; }
   }
 </style>
 </head>

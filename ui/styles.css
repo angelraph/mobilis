@@ -764,3 +764,49 @@ body.embedded::before { display: none; }
 
 .refresh-btn.is-active { color: var(--lime); border-color: var(--lime); }
 .embedded .preview-banner { display: none; }
+
+@media (max-width: 640px) {
+  /* The substitution arrow reads top-to-bottom on a phone. */
+  .form-row .arrow { flex: 1 1 100%; font-size: 0; text-align: left; }
+  .form-row .arrow::after { content: "↓ swap for"; font-size: 12px; font-family: var(--mono); color: var(--faint); }
+  .form-row input, .form-row select { flex: 1 1 100%; }
+  .preview { flex: 1 1 100%; }
+}
+
+/* ---- price marks, excess, collateral actions ---- */
+
+.excess-note {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #bff0de;
+  background: rgba(111, 208, 178, 0.08);
+  border: 1px solid rgba(111, 208, 178, 0.35);
+}
+
+.marks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-family: var(--mono); font-size: 12px; }
+.marks-label { color: var(--faint); margin-right: 4px; }
+.mark-chip { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.mark-chip.down { color: var(--orange); border-color: rgba(240, 106, 53, 0.45); }
+.mark-chip.up { color: var(--lime); border-color: rgba(111, 208, 178, 0.45); }
+
+.action-block { margin-top: 12px; }
+.action-block + .action-block { border-top: 1px solid var(--line-soft); padding-top: 14px; margin-top: 16px; }
+.action-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(2, 12, 22, 0.45);
+  font-size: 14px;
+}
+.action-line.best { border-color: rgba(111, 208, 178, 0.45); background: rgba(111, 208, 178, 0.06); }
+.action-line .meta { color: var(--faint); font-family: var(--mono); font-size: 12px; }
+.action-line.blocked { color: var(--faint); }
+.action-line.blocked .meta { color: #f3b89f; }

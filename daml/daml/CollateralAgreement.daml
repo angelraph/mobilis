@@ -38,6 +38,8 @@ template CollateralAgreement
           agreementId
           eligibilityCriteria
           requiredCollateral = 0.0
+          prices = []
+          pricesAsOf = "Par (no marks yet)"
           schedule = []
 
     nonconsuming choice CollateralAgreement_RequestMarginCall : ContractId MarginCall
@@ -94,7 +96,9 @@ template CollateralAgreementState
     agreementId : Text
     eligibilityCriteria : [EligibilityCriterion]
     requiredCollateral : Decimal
-    schedule : [PostedAsset]
+    prices : [(Text, Decimal)]   -- latest price mark per asset type (par when absent)
+    pricesAsOf : Text            -- when the marks were taken, e.g. "Day 2 close"
+    schedule : [PostedAsset]     -- postedValue always at the current marks
   where
     signatory pledgor, securedParty
     observer custodian
@@ -106,8 +110,27 @@ template CollateralAgreementState
         action : CallAction
       controller custodian
       do
-        newSchedule <- V.enforceMove eligibilityCriteria requiredCollateral schedule action
+        newSchedule <- V.enforceMove eligibilityCriteria prices requiredCollateral schedule action
         create this with schedule = newSchedule
+
+    -- | The custodian, as valuation agent, marks prices to market. Every
+    -- posted lot is re-valued at the new marks in the same transaction, so
+    -- a price drop shows up at once as lower coverage: returns are then
+    -- refused until the pledgor tops up, and the regulator's next report
+    -- shows the shortfall.
+    choice State_MarkPrices : ContractId CollateralAgreementState
+      with
+        marks : [PriceMark]
+        asOf : Text
+      controller custodian
+      do
+        assertMsg "At least one price mark is required" (not (null marks))
+        assertMsg "Prices must be positive" (all (\m -> m.price > 0.0) marks)
+        let newPrices = V.applyMarks prices marks
+        create this with
+          prices = newPrices
+          pricesAsOf = asOf
+          schedule = V.revalue eligibilityCriteria newPrices schedule
 
     -- | The custodian applies a margin call to the required collateral.
     -- The margin call itself moves Requested -> Applied in the same
@@ -172,6 +195,7 @@ template CollateralAgreementState
           totalPostedValue = total
           requiredCollateral
           coverageRatio = ratio
+          valuationAsOf = pricesAsOf
           positionsByAssetType = V.positionsByType schedule
           concentrationByAssetType = V.concentrations schedule
           eligibilityBreaches = eligBreaches
@@ -248,7 +272,7 @@ template CollateralCall
         assertMsg "Call must be Outstanding to agree" (status == Outstanding)
         st <- fetch stateCid
         assertMsg "State must be for this agreement" (st.agreementId == agreementId)
-        _ <- V.enforceMove st.eligibilityCriteria st.requiredCollateral st.schedule action
+        _ <- V.enforceMove st.eligibilityCriteria st.prices st.requiredCollateral st.schedule action
         create this with status = Agreed
 
     choice Call_Dispute : ContractId CollateralCall

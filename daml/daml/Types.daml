@@ -32,6 +32,14 @@ data PostedAsset = PostedAsset
     postedValue : Decimal -- faceValue after haircut, computed on-ledger
   deriving (Eq, Show)
 
+-- | A price mark published by the custodian as valuation agent: the price of
+-- an asset type per 1.0 of face value (par = 1.0).
+data PriceMark = PriceMark
+  with
+    assetType : Text
+    price : Decimal
+  deriving (Eq, Show)
+
 -- | Direction of a margin call relative to the secured party.
 data CallDirection
   = NeedsMoreCollateral

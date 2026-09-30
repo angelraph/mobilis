@@ -703,3 +703,6 @@ img.brand-mark { display: block; object-fit: cover; background: none; box-shadow
 .note h3 { font-size: 18px; font-weight: 500; margin-bottom: 10px; }
 .note ul { margin: 0; padding-left: 20px; color: var(--muted); }
 .note li { margin: 8px 0; }
+
+/* Long commands and URLs wrap instead of pushing the page wider on phones. */
+.steps code, .note code, .faq code { overflow-wrap: anywhere; word-break: break-word; }

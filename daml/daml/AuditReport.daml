@@ -17,6 +17,7 @@ template AuditReport
     totalPostedValue : Decimal                  -- after haircuts
     requiredCollateral : Decimal                -- what the exposure currently demands
     coverageRatio : Decimal                     -- totalPostedValue / requiredCollateral
+    valuationAsOf : Text                        -- which price marks the values use
     positionsByAssetType : [(Text, Decimal)]
     concentrationByAssetType : [(Text, Decimal)] -- share of total posted value
     eligibilityBreaches : [Text]                -- asset types posted that are NOT on the agreed schedule
