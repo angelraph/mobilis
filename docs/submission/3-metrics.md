@@ -13,8 +13,9 @@
 | Assumption | Why it matters | Status |
 | --- | --- | --- |
 | Users have this problem | Without real pain there is no pilot | ⏳ testing: interviews planned (public cost data supports it) |
-| The rules can be enforced on-ledger without breaking the workflow | Core technical bet | ✅ confirmed: 14 Daml tests, end-to-end run on a Canton sandbox |
+| The rules can be enforced on-ledger without breaking the workflow | Core technical bet | ✅ confirmed: 20 Daml tests plus 16 rulebook cases checked on both ledger and browser; end-to-end runs on a Canton sandbox |
 | A bad move is stopped before settlement, not after | The key value over today | ✅ confirmed: undercollateralising and over-concentrated swaps are refused at Agree; settlement re-checks |
+| A price drop is caught at once, not at month-end | Collateral value moves daily | ✅ confirmed: custodian marks re-value the whole book in one transaction; releases are refused until a top-up (tested live: mark to 80, 40,000 short, top-up restored coverage) |
 | The regulator can get assurance without the book | Privacy thesis | ✅ confirmed: regulator node sees 1 report and 0 raw contracts (tested) |
 | They would use our solution | Adoption | ⏳ testing: demos to collateral ops contacts |
 | They would pay or switch | Business model | ⏳ testing: pricing questions in interviews |
@@ -36,7 +37,7 @@
 ## 4. Tests and results
 
 - **What we tried:** a timed run of a full margin cycle through the real UI on a Canton sandbox (margin call, top-up delivery, fulfilment check, substitution, regulator report), three runs; a negative-path test suite; a recorded end-to-end demo.
-- **What happened:** full cycle in 2.35 s, 2.17 s and 1.78 s of ledger time (about 2 s), with every rule checked at every step. 14 of 14 tests pass. In the demo, "fulfilled" was refused while the book was short, and a swap that would leave the book short was refused at Agree.
+- **What happened:** full cycle in 2.35 s, 2.17 s and 1.78 s of ledger time (about 2 s), with every rule checked at every step. 20 of 20 Daml tests and 16 of 16 parity cases pass. In the demo, "fulfilled" was refused while the book was short, and a swap that would leave the book short was refused at Agree.
 - **What we changed because of it:** made the ledger compute value from haircuts (it had trusted the caller); added coverage and concentration checks, the settlement-time re-check, and a margin call that can only be fulfilled when covered; fixed a regulator view that didn't render before its first report.
 
 ---

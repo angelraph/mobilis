@@ -14,6 +14,7 @@
 | **Time / cost / risk** | Multi-step, multi-party, error-prone; breaches discovered after settlement | About 2 seconds of ledger time for a full margin cycle (measured, local sandbox); a move that breaks the agreement can't even be agreed |
 
 - **Value proposition in one line:** Collateral that moves in one atomic transaction, with every rule enforced by the ledger and every party seeing only its own slice.
+- **What happens when prices move:** the custodian marks prices on the ledger, the whole book re-values at once, and a shortfall blocks releases until the pledgor tops up, with the cheapest top-up proposed on screen.
 - **Why users would switch from what they do today:** one shared, correct record instead of several reconciled copies; breaches prevented instead of reported; regulator reporting as a by-product of settlement.
 
 ---

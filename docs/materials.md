@@ -115,7 +115,7 @@ easier first customer.
 
 ### What the product demonstrably does (verified)
 
-- **14 automated Daml Script tests** pass, most of them on rejection paths:
+- **20 automated Daml Script tests** pass, plus **16 rulebook cases checked on both the ledger and the browser's copy of the rules**. Most tests are on rejection paths:
   ineligible assets, undercollateralising substitutions and returns,
   concentration breaches, releasing an asset that isn't posted, a margin
   call applied twice or marked fulfilled while short, wrong controllers,
@@ -247,7 +247,7 @@ All four roles on one screen, each reading the same Canton ledger:
 ### Built during HackCanton
 
 On-ledger valuation, coverage, concentration limits, the settlement
-re-check, the margin-call lifecycle, the collateral optimiser and 14
+re-check, the margin-call lifecycle, price marks, returns and top-ups, the collateral optimiser and 20
 tests. The pre-hackathon baseline is disclosed in the README and tagged
 `pre-hackathon-baseline`.
 
@@ -285,7 +285,7 @@ the operations layer they need.
 operational cost and regulatory exposure. Pricing is a platform fee plus a
 fee per agreement.
 
-**Traction.** Working MVP, 14 passing tests, and an end-to-end run on a
+**Traction.** Working MVP, 20 passing ledger tests plus 16 parity cases, and end-to-end runs on a
 Canton sandbox. **[FILL: interviews and pilot interest]**
 
 **The ask.** Accelerator support and an introduction to one custodian or
