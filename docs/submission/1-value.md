@@ -22,7 +22,7 @@
 
 - **Cost of the problem:** industry estimates put manual collateral and corporate-action processing at €1.6–8B a year, and 46% of corporate-action data is still handled manually (SIX).
 - **How many people or companies have it:** every institution running margin, repo or securities-lending relationships: dealers, asset managers, custodians and triparty agents.
-- **Evidence:** the public figures above; the ongoing industry investment in collateral mobility (Broadridge DLR, DTCC tokenised Treasuries, HQLAx). Customer interviews are in progress and are logged in `docs/validation.md` in the repo.
+- **Evidence:** the public figures above; the ongoing industry investment in collateral mobility (Broadridge DLR, DTCC tokenised Treasuries, HQLAx). Customer interviews with collateral operations teams are planned and will be logged in `docs/validation.md` in the repo.
 
 ---
 

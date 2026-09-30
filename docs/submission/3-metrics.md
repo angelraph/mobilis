@@ -12,7 +12,7 @@
 
 | Assumption | Why it matters | Status |
 | --- | --- | --- |
-| Users have this problem | Without real pain there is no pilot | ⏳ testing: interviews in progress (public cost data supports it) |
+| Users have this problem | Without real pain there is no pilot | ⏳ testing: interviews planned (public cost data supports it) |
 | The rules can be enforced on-ledger without breaking the workflow | Core technical bet | ✅ confirmed: 14 Daml tests, end-to-end run on a Canton sandbox |
 | A bad move is stopped before settlement, not after | The key value over today | ✅ confirmed: undercollateralising and over-concentrated swaps are refused at Agree; settlement re-checks |
 | The regulator can get assurance without the book | Privacy thesis | ✅ confirmed: regulator node sees 1 report and 0 raw contracts (tested) |
@@ -25,7 +25,7 @@
 
 | # | Who (role, company type) | Date | Key takeaway |
 | --- | --- | --- | --- |
-| 1 | To be added | | Outreach to collateral operations and treasury contacts started Sep 30, 2026 |
+| 1 | To be added | | Outreach to collateral operations and treasury contacts planned for the week of Sep 30, 2026 |
 | 2 | To be added | | |
 | 3 | To be added | | |
 
