@@ -255,6 +255,69 @@ td.actions {
 .status-agreed { background: #dff0e6; color: #1f5c3f; }
 .status-settled { background: var(--accent-soft); color: var(--accent); }
 .status-disputed { background: var(--warning-bg); color: var(--warning-text); }
+.status-requested { background: #fbf0d9; color: #7a5a10; }
+.status-applied { background: #fbf0d9; color: #7a5a10; }
+.status-fulfilled { background: var(--accent-soft); color: var(--accent); }
+
+/* ---- coverage ---- */
+
+.coverage { margin: 14px 0 6px; }
+
+.coverage-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.coverage-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #ece9e3;
+  overflow: hidden;
+}
+
+.coverage-fill { height: 100%; background: var(--accent); }
+.coverage-short .coverage-fill { background: var(--warning-text); }
+
+.preview {
+  align-self: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---- suggestions ---- */
+
+.suggestion {
+  border: 1px solid var(--accent-soft);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+
+.suggestion-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.suggestion p { margin: 6px 0 0; font-size: 14px; }
+.suggestion .action { margin-top: 10px; }
+
+.ruled-out {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.form-row .grow { flex: 1 1 220px; }
 
 /* ---- forms ---- */
 

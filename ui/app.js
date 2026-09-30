@@ -32,6 +32,18 @@ const TEMPLATE = {
 
 const ROLES = ["Pledgor", "SecuredParty", "Custodian", "Regulator"];
 
+// The pledgor's off-ledger inventory for the substitution optimiser: what it
+// could deliver, and what pledging each asset costs it per year in basis
+// points (the funding it could raise with that asset elsewhere). Illustrative
+// treasury-desk inputs for the demo; a pilot would read these from the
+// pledgor's own inventory and funding systems.
+const DEMO_INVENTORY = [
+  { assetType: "UST-BILL", available: 3000000, costBps: 40 },
+  { assetType: "IG-CORP-BOND", available: 2000000, costBps: 8 },
+  { assetType: "CASH-USD", available: 1500000, costBps: 25 },
+  { assetType: "HY-BOND", available: 1000000, costBps: 3 },
+];
+
 // ---------------------------------------------------------------------
 // JWT (see warning above)
 // ---------------------------------------------------------------------
@@ -142,7 +154,32 @@ const state = {
   mock: false,
   aiBusy: false,
   draftNarrative: null, // the custodian's in-progress report narrative; reset to null after each successful report
+  suggestion: null, // the pledgor's latest optimiser result
+  suggestRelease: "", // asset type the pledgor wants back ("" = any)
+  suggestGoal: "Free up our Treasuries for a repo this afternoon at the lowest funding cost",
 };
+
+// Mirrors Valuation.daml so forms can preview what the ledger will compute.
+// Display only: the ledger recomputes every postedValue from the agreement's
+// own haircuts and ignores whatever the browser sends.
+function criteria() {
+  return state.data.agreement ? state.data.agreement.payload.eligibilityCriteria : [];
+}
+
+function previewPosted(assetType, faceValue) {
+  const c = criteria().find((x) => x.assetType === assetType);
+  const face = parseFloat(faceValue) || 0;
+  return c ? face * (1 - parseFloat(c.haircut)) : 0;
+}
+
+function totalPosted(schedule) {
+  return schedule.reduce((sum, a) => sum + parseFloat(a.postedValue), 0);
+}
+
+function formatPct(v) {
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  return `${(n * 100).toFixed(1)}%`;
+}
 
 function assetLabel(a) {
   return `${a.assetType} · posted ${formatMoney(a.postedValue)} (face ${formatMoney(a.faceValue)})`;
@@ -253,11 +290,13 @@ async function runAction(fn) {
 // Actions
 // ---------------------------------------------------------------------
 
+// postedValue defaults to 0: CollateralAgreement_ProposeCall recomputes it
+// on-ledger from the agreement's haircut, whatever is sent here.
 function assetPayload(assetType, faceValue, postedValue) {
   return {
     assetType,
     faceValue: String(faceValue),
-    postedValue: String(postedValue),
+    postedValue: String(postedValue || 0),
   };
 }
 
@@ -299,9 +338,11 @@ async function requestMarginCall(amount, direction) {
   });
 }
 
+// Agree runs the full rulebook (eligibility, coverage, concentration)
+// against the live state, so the counterparty passes the current state.
 async function agreeCall(callId) {
-  const agreementCid = state.data.agreement.contractId;
-  await exerciseChoice(state.token, TEMPLATE.Call, callId, "Call_Agree", { agreementCid });
+  const stateCid = state.data.agreementState.contractId;
+  await exerciseChoice(state.token, TEMPLATE.Call, callId, "Call_Agree", { stateCid });
 }
 
 async function disputeCall(callId, reason) {
@@ -313,8 +354,17 @@ async function settleCall(callId) {
   await exerciseChoice(state.token, TEMPLATE.Call, callId, "Call_Settle", { stateCid });
 }
 
+async function applyMarginCall(marginCallId) {
+  const stateCid = state.data.agreementState.contractId;
+  await exerciseChoice(state.token, TEMPLATE.AgreementState, stateCid, "State_ApplyMarginCall", {
+    marginCallCid: marginCallId,
+  });
+}
+
+// The ledger refuses this unless posted value covers required collateral.
 async function markMarginCallFulfilled(marginCallId) {
-  await exerciseChoice(state.token, TEMPLATE.MarginCall, marginCallId, "MarginCall_MarkFulfilled", {});
+  const stateCid = state.data.agreementState.contractId;
+  await exerciseChoice(state.token, TEMPLATE.MarginCall, marginCallId, "MarginCall_MarkFulfilled", { stateCid });
 }
 
 async function generateReport(asOfNote, narrativeText) {
@@ -331,42 +381,110 @@ async function generateReport(asOfNote, narrativeText) {
 // Mirrors the deterministic default computed on-ledger in
 // State_GenerateAuditReport, so the draft box has a sensible starting point
 // even before anyone clicks "Draft with AI".
-function defaultNarrative() {
+// The same figures State_GenerateAuditReport computes on-ledger, for the
+// coverage bar, the draft box and the AI prompt. A committed report never
+// uses these: the ledger recomputes every number itself.
+function positionSummary() {
   const s = state.data.agreementState;
-  const a = state.data.agreement;
-  if (!s || !a) return "";
-  const eligibleTypes = a.payload.eligibilityCriteria.map((c) => c.assetType);
-  const breaches = s.payload.schedule.filter((asset) => !eligibleTypes.includes(asset.assetType));
-  return breaches.length
-    ? `Attention: ${breaches.length} posted asset(s) fall outside the agreed eligibility schedule.`
-    : "All posted collateral is within the agreed eligibility schedule.";
+  if (!s) return null;
+  const schedule = s.payload.schedule;
+  const total = totalPosted(schedule);
+  const required = parseFloat(s.payload.requiredCollateral);
+  const positions = {};
+  for (const asset of schedule) {
+    positions[asset.assetType] = (positions[asset.assetType] || 0) + parseFloat(asset.postedValue);
+  }
+  const limits = Object.fromEntries(
+    s.payload.eligibilityCriteria.map((c) => [c.assetType, parseFloat(c.concentrationLimit)])
+  );
+  const concentration = Object.fromEntries(
+    Object.entries(positions).map(([t, v]) => [t, total ? v / total : 0])
+  );
+  return {
+    total,
+    required,
+    coverageRatio: required > 0 ? total / required : 1,
+    shortfall: Math.max(0, required - total),
+    positions,
+    concentration,
+    eligibilityBreaches: Object.keys(positions).filter((t) => !(t in limits)),
+    concentrationBreaches: Object.keys(concentration).filter((t) => t in limits && concentration[t] > limits[t]),
+  };
+}
+
+function defaultNarrative() {
+  const p = positionSummary();
+  if (!p) return "";
+  if (p.eligibilityBreaches.length)
+    return `Attention: ${p.eligibilityBreaches.length} posted asset type(s) fall outside the agreed eligibility schedule.`;
+  if (p.concentrationBreaches.length)
+    return `Attention: concentration limit exceeded for ${p.concentrationBreaches.join(", ")}.`;
+  if (p.shortfall > 0) return `Attention: posted collateral is ${formatMoney(p.shortfall)} short of the required amount.`;
+  return "Fully collateralised: all posted collateral is eligible, within concentration limits, and covers the requirement.";
 }
 
 async function draftNarrativeWithAI(asOfNote) {
-  const s = state.data.agreementState;
   const a = state.data.agreement;
-  const positions = {};
-  for (const asset of s.payload.schedule) {
-    positions[asset.assetType] = (positions[asset.assetType] || 0) + parseFloat(asset.postedValue);
-  }
-  const eligibleTypes = a.payload.eligibilityCriteria.map((c) => c.assetType);
-  const breaches = s.payload.schedule
-    .map((x) => x.assetType)
-    .filter((t) => !eligibleTypes.includes(t));
+  const p = positionSummary();
   const res = await fetch(`${AI_PROXY_BASE}/draft-narrative`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       agreementId: a.payload.agreementId,
       asOfNote,
-      totalPostedValue: Object.values(positions).reduce((sum, v) => sum + v, 0),
-      positionsByAssetType: positions,
-      eligibilityBreaches: breaches,
+      totalPostedValue: p.total,
+      requiredCollateral: p.required,
+      coverageRatio: p.coverageRatio,
+      positionsByAssetType: p.positions,
+      concentrationByAssetType: p.concentration,
+      eligibilityBreaches: p.eligibilityBreaches,
+      concentrationBreaches: p.concentrationBreaches,
     }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || "The AI drafting proxy is not reachable.");
   return json.narrative;
+}
+
+// Ask the proxy to rank substitutions (AI picks among rule-checked moves).
+// If the proxy isn't reachable, including in the static preview, run the
+// same rules locally and take the best-scoring valid move, so the panel
+// always works. Either way the ledger re-checks whatever gets proposed.
+async function suggestSubstitution() {
+  const s = state.data.agreementState;
+  const input = {
+    criteria: s.payload.eligibilityCriteria,
+    required: s.payload.requiredCollateral,
+    schedule: s.payload.schedule,
+    inventory: DEMO_INVENTORY,
+    release: state.suggestRelease || null,
+    goal: state.suggestGoal,
+  };
+  if (!state.mock) {
+    try {
+      const res = await fetch(`${AI_PROXY_BASE}/suggest-substitution`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const json = await res.json();
+      if (res.ok) return json;
+    } catch (e) {
+      // fall through to local rules
+    }
+  }
+  const all = window.MobilisRules.suggestSubstitutions(input);
+  const valid = all.filter((c) => c.valid).slice(0, 5);
+  const rejected = all.filter((c) => !c.valid);
+  return {
+    choice: valid.length ? 0 : null,
+    explanation: valid.length
+      ? `Best valid swap by estimated annual funding benefit. Keeps coverage at ${formatPct(valid[0].coverageAfter)} and inside every limit.`
+      : "No one-for-one substitution from the available inventory keeps this book covered and within limits.",
+    valid,
+    rejected,
+    source: "rules",
+  };
 }
 
 // ---------------------------------------------------------------------
@@ -434,7 +552,9 @@ function renderAgreementCard() {
     ["Custodian", a.payload.custodian.split("::")[0]],
     [
       "Eligible assets",
-      a.payload.eligibilityCriteria.map((c) => `${c.assetType} (max haircut ${c.maxHaircut})`).join(", "),
+      a.payload.eligibilityCriteria
+        .map((c) => `${c.assetType} (haircut ${formatPct(c.haircut)}, max ${formatPct(c.concentrationLimit)} of book)`)
+        .join(", "),
     ],
   ];
   const table = el("table", { class: "kv" }, [
@@ -444,21 +564,43 @@ function renderAgreementCard() {
       rows.map(([k, v]) => el("tr", {}, [el("th", { text: k }), el("td", { text: v })]))
     ),
   ]);
+  const p = positionSummary();
+  const coverage = p
+    ? el("div", { class: `coverage ${p.shortfall > 0 ? "coverage-short" : "coverage-ok"}` }, [
+        el("div", { class: "coverage-figures" }, [
+          el("span", { text: `Posted ${formatMoney(p.total)}` }),
+          el("span", { text: `Required ${formatMoney(p.required)}` }),
+          el("strong", { text: `Coverage ${formatPct(p.coverageRatio)}` }),
+        ]),
+        el("div", { class: "coverage-bar" }, [
+          el("div", { class: "coverage-fill", style: `width: ${Math.min(100, p.coverageRatio * 100).toFixed(1)}%` }),
+        ]),
+        p.shortfall > 0 ? el("p", { class: "warning", text: `Shortfall: ${formatMoney(p.shortfall)}` }) : null,
+      ])
+    : null;
   const schedule = s
     ? el("div", { class: "schedule" }, [
+        coverage,
         el("h3", { text: "Live schedule" }),
         s.payload.schedule.length
           ? el(
               "table",
               { class: "data" },
               [
-                el("thead", {}, [el("tr", {}, [el("th", { text: "Asset type" }), el("th", { text: "Posted value" })])]),
+                el("thead", {}, [
+                  el("tr", {}, [
+                    el("th", { text: "Asset type" }),
+                    el("th", { text: "Face value" }),
+                    el("th", { text: "Posted value" }),
+                  ]),
+                ]),
                 el(
                   "tbody",
                   {},
                   s.payload.schedule.map((asset) =>
                     el("tr", {}, [
                       el("td", { "data-label": "Asset type", text: asset.assetType }),
+                      el("td", { "data-label": "Face value", class: "num", text: formatMoney(asset.faceValue) }),
                       el("td", { "data-label": "Posted value", class: "num", text: formatMoney(asset.postedValue) }),
                     ])
                   )
@@ -478,12 +620,21 @@ function renderMarginCalls() {
     el("tr", {}, [
       el("td", { "data-label": "Direction", text: mc.payload.direction }),
       el("td", { "data-label": "Amount", class: "num", text: formatMoney(mc.payload.amount) }),
-      el("td", { "data-label": "Status", text: mc.payload.fulfilled ? "Fulfilled" : "Open" }),
+      el("td", { "data-label": "Status" }, [
+        el("span", { class: `status status-${mc.payload.status.toLowerCase()}`, text: mc.payload.status }),
+      ]),
       el(
         "td",
         { "data-label": "", class: "actions" },
         [
-          !mc.payload.fulfilled && state.role === "Custodian"
+          mc.payload.status === "Requested" && state.role === "Custodian"
+            ? el("button", {
+                class: "action",
+                onclick: () => runAction(() => applyMarginCall(mc.contractId)),
+                text: "Apply to schedule",
+              })
+            : null,
+          mc.payload.status === "Applied" && state.role === "Custodian"
             ? el("button", {
                 class: "action",
                 onclick: () => runAction(() => markMarginCallFulfilled(mc.contractId)),
@@ -532,7 +683,7 @@ function renderCalls() {
             ? el("button", {
                 class: "action secondary",
                 onclick: () =>
-                  runAction(() => disputeCall(c.contractId, "Rejected: asset type not on the agreed eligibility schedule")),
+                  runAction(() => disputeCall(c.contractId, "Disputed by counterparty")),
                 text: "Dispute",
               })
             : null,
@@ -572,24 +723,32 @@ function renderProposeForm() {
   const defaultOutType = currentAsset ? currentAsset.assetType : eligibleTypes[0] || "UST-BILL";
   const defaultInType = eligibleTypes.find((t) => t !== defaultOutType) || eligibleTypes[0] || "IG-CORP-BOND";
   const defaultInFace = currentAsset ? currentAsset.faceValue : "1000000";
-  const defaultInPosted = currentAsset ? currentAsset.postedValue : "950000";
+
+  // A live preview of the value the ledger will assign after haircut.
+  const preview = (typeInput, faceInput) => {
+    const out = el("span", { class: "preview" });
+    const update = () => {
+      out.textContent = `posts ${formatMoney(previewPosted(typeInput.value, faceInput.value))}`;
+    };
+    typeInput.addEventListener("input", update);
+    faceInput.addEventListener("input", update);
+    update();
+    return out;
+  };
 
   const assetTypeIn = el("input", { placeholder: "Asset type, e.g. UST-BILL", value: "UST-BILL" });
   const faceIn = el("input", { placeholder: "Face value", value: "1000000" });
-  const postedIn = el("input", { placeholder: "Posted value", value: "980000" });
   const outTypeIn = el("input", { placeholder: "Outgoing asset type", value: defaultOutType });
   const inTypeIn = el("input", { placeholder: "Incoming asset type", value: defaultInType });
   const inFaceIn = el("input", { placeholder: "Incoming face value", value: defaultInFace });
-  const inPostedIn = el("input", { placeholder: "Incoming posted value", value: defaultInPosted });
 
   const deliveryRow = el("div", { class: "form-row" }, [
     assetTypeIn,
     faceIn,
-    postedIn,
+    preview(assetTypeIn, faceIn),
     el("button", {
       class: "action",
-      onclick: () =>
-        runAction(() => proposeDelivery(assetTypeIn.value, faceIn.value, postedIn.value)),
+      onclick: () => runAction(() => proposeDelivery(assetTypeIn.value, faceIn.value)),
       text: "Propose delivery",
     }),
   ]);
@@ -599,7 +758,7 @@ function renderProposeForm() {
     el("span", { class: "arrow", text: "→" }),
     inTypeIn,
     inFaceIn,
-    inPostedIn,
+    preview(inTypeIn, inFaceIn),
     el("button", {
       class: "action",
       onclick: () =>
@@ -615,8 +774,7 @@ function renderProposeForm() {
             outgoing.faceValue,
             outgoing.postedValue,
             inTypeIn.value,
-            inFaceIn.value,
-            inPostedIn.value
+            inFaceIn.value
           );
         }),
       text: "Propose substitution",
@@ -626,7 +784,7 @@ function renderProposeForm() {
   const marginCallRow =
     state.role === "SecuredParty"
       ? (() => {
-          const amountIn = el("input", { placeholder: "Amount", value: "50000" });
+          const amountIn = el("input", { placeholder: "Amount", value: "1400000" });
           const directionSel = el("select", {}, [
             el("option", { value: "NeedsMoreCollateral", text: "Needs more collateral" }),
             el("option", { value: "ExcessCollateral", text: "Excess collateral" }),
@@ -644,10 +802,105 @@ function renderProposeForm() {
       : null;
 
   return card("Propose a movement", [
-    el("p", { class: "hint", text: "Delivery and substitution are proposed by either party and must be agreed by the counterparty, then settled by the custodian." }),
+    el("p", { class: "hint", text: "Delivery and substitution are proposed by either party and must be agreed by the counterparty, then settled by the custodian. The ledger values every asset from the agreed haircuts and refuses any move that breaks eligibility, coverage, or concentration limits." }),
     deliveryRow,
     substitutionRow,
     marginCallRow,
+  ]);
+}
+
+function renderOptimiser() {
+  if (state.role !== "Pledgor" || !state.data.agreementState) return null;
+  const postedTypes = [...new Set(state.data.agreementState.payload.schedule.map((a) => a.assetType))];
+
+  const releaseSel = el(
+    "select",
+    { onchange: (e) => (state.suggestRelease = e.target.value) },
+    [
+      el("option", { value: "", text: "Any posted asset" }),
+      ...postedTypes.map((t) =>
+        el("option", { value: t, text: `Get back ${t}`, ...(t === state.suggestRelease ? { selected: "selected" } : {}) })
+      ),
+    ]
+  );
+  const goalIn = el("input", { class: "grow", value: state.suggestGoal, oninput: (e) => (state.suggestGoal = e.target.value) });
+  const suggestBtn = el("button", {
+    class: "action",
+    text: state.aiBusy ? "Thinking…" : "Suggest",
+    onclick: async () => {
+      if (state.aiBusy) return;
+      state.aiBusy = true;
+      render();
+      try {
+        state.suggestion = await suggestSubstitution();
+        state.error = null;
+      } catch (e) {
+        state.error = `Suggestion failed: ${e.message}`;
+      } finally {
+        state.aiBusy = false;
+        render();
+      }
+    },
+  });
+
+  const moveText = (c) =>
+    `Release ${c.outgoing.assetType} (${formatMoney(c.outgoing.postedValue)}) → deliver ${formatMoney(c.incoming.faceValue)} face of ${c.incoming.assetType} (posts ${formatMoney(c.incoming.postedValue)})`;
+
+  const result = state.suggestion;
+  const body = [];
+  if (result) {
+    const picked = result.choice === null ? null : result.valid[result.choice];
+    if (picked) {
+      body.push(
+        el("div", { class: "suggestion" }, [
+          el("div", { class: "suggestion-head" }, [
+            el("strong", { text: moveText(picked) }),
+            el("span", { class: "muted", text: result.source === "ai" ? "AI pick among rule-checked moves" : "Rules-engine pick" }),
+          ]),
+          el("p", { text: result.explanation }),
+          el("p", {
+            class: "muted",
+            text: `Coverage after ${formatPct(picked.coverageAfter)} · est. funding benefit ${formatMoney(picked.annualBenefit)} / yr`,
+          }),
+          el("button", {
+            class: "action",
+            text: "Propose this substitution",
+            onclick: () =>
+              runAction(async () => {
+                await proposeSubstitution(
+                  picked.outgoing.assetType,
+                  picked.outgoing.faceValue,
+                  picked.outgoing.postedValue,
+                  picked.incoming.assetType,
+                  picked.incoming.faceValue
+                );
+                state.suggestion = null;
+              }),
+          }),
+        ])
+      );
+    } else {
+      body.push(el("p", { class: "warning", text: result.explanation }));
+    }
+    if (result.rejected.length) {
+      body.push(el("h3", { text: "Ruled out by the agreement's rules" }));
+      body.push(
+        el(
+          "ul",
+          { class: "ruled-out" },
+          result.rejected.slice(0, 4).map((c) => el("li", { text: `${c.outgoing.assetType} → ${c.incoming.assetType}: ${c.reason}` }))
+        )
+      );
+    }
+  }
+
+  return card("Collateral optimiser", [
+    el("p", {
+      class: "hint",
+      text: "Finds the cheapest swap that keeps this book eligible, covered and inside its concentration limits. The AI only chooses among moves the rules already allow, and the ledger checks the chosen move again when it is agreed and settled.",
+    }),
+    el("div", { class: "form-row" }, [releaseSel, goalIn, suggestBtn]),
+    ...body,
   ]);
 }
 
@@ -720,26 +973,36 @@ function renderReports() {
         el("strong", { text: p.agreementId }),
         el("span", { class: "muted", text: p.asOfNote }),
       ]),
-      el("p", { class: "total", text: `Total posted value: ${formatMoney(p.totalPostedValue)}` }),
+      el("p", {
+        class: "total",
+        text: `Posted ${formatMoney(p.totalPostedValue)} against required ${formatMoney(p.requiredCollateral)} · coverage ${formatPct(p.coverageRatio)}`,
+      }),
       el(
         "table",
         { class: "data" },
         [
-          el("thead", {}, [el("tr", {}, [el("th", { text: "Asset type" }), el("th", { text: "Value" })])]),
+          el("thead", {}, [
+            el("tr", {}, [el("th", { text: "Asset type" }), el("th", { text: "Value" }), el("th", { text: "Share of book" })]),
+          ]),
           el(
             "tbody",
             {},
-            p.positionsByAssetType.map((pair) =>
-              el("tr", {}, [
+            p.positionsByAssetType.map((pair) => {
+              const share = p.concentrationByAssetType.find((c) => c._1 === pair._1);
+              return el("tr", {}, [
                 el("td", { "data-label": "Asset type", text: pair._1 }),
                 el("td", { "data-label": "Value", class: "num", text: formatMoney(pair._2) }),
-              ])
-            )
+                el("td", { "data-label": "Share of book", class: "num", text: share ? formatPct(share._2) : "" }),
+              ]);
+            })
           ),
         ]
       ),
       p.eligibilityBreaches.length
         ? el("p", { class: "warning", text: `Eligibility breaches: ${p.eligibilityBreaches.join(", ")}` })
+        : null,
+      p.concentrationBreaches.length
+        ? el("p", { class: "warning", text: `Concentration breaches: ${p.concentrationBreaches.join(", ")}` })
         : null,
       el("p", { class: "narrative", text: p.narrative }),
     ]);
@@ -807,6 +1070,8 @@ function renderBody() {
   app.appendChild(renderAgreementCard());
   app.appendChild(renderMarginCalls());
   app.appendChild(renderCalls());
+  const optimiser = renderOptimiser();
+  if (optimiser) app.appendChild(optimiser);
   const proposeForm = renderProposeForm();
   if (proposeForm) app.appendChild(proposeForm);
   const custodianTools = renderCustodianTools();

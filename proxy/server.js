@@ -1,9 +1,11 @@
 "use strict";
 
 /*
- * Mobilis AI narrative-drafting proxy.
+ * Mobilis AI proxy: drafts the custodian's report narrative
+ * (/draft-narrative) and ranks collateral substitutions for the pledgor
+ * (/suggest-substitution, see the optimiser section below).
  *
- * Why this exists: the custodian's "Draft with AI" button in the UI needs to
+ * Why this exists: the "Draft with AI" and "Suggest" buttons in the UI need to
  * call an LLM, but an API key can never live in browser JavaScript (anyone
  * viewing the page could read it out of the page source). This tiny server
  * holds the real key and is the only thing that ever talks to the LLM
@@ -43,7 +45,14 @@ function loadEnvFile() {
 }
 loadEnvFile();
 
-function callOpenAI(prompt) {
+const NARRATIVE_SYSTEM_PROMPT =
+  "You draft short, plain-English narratives for institutional collateral audit reports. " +
+  "Write one to two sentences, factual and neutral in tone, suitable for a regulator or auditor. " +
+  "State the total posted value against required collateral and the coverage ratio, call out any " +
+  "eligibility or concentration breaches plainly if present, and do not invent any figures beyond " +
+  "what is given. No preamble, no markdown, just the sentence(s).";
+
+function callOpenAI(systemPrompt, prompt, maxTokens) {
   return new Promise((resolve, reject) => {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -53,18 +62,11 @@ function callOpenAI(prompt) {
     const body = JSON.stringify({
       model: MODEL,
       messages: [
-        {
-          role: "system",
-          content:
-            "You draft short, plain-English narratives for institutional collateral audit reports. " +
-            "Write one to two sentences, factual and neutral in tone, suitable for a regulator or auditor. " +
-            "State the total posted value, call out any eligibility breaches plainly if present, and do not " +
-            "invent any figures beyond what is given. No preamble, no markdown, just the sentence(s).",
-        },
+        { role: "system", content: systemPrompt },
         { role: "user", content: prompt },
       ],
       temperature: 0.3,
-      max_tokens: 200,
+      max_tokens: maxTokens || 200,
     });
 
     const req = https.request(
@@ -110,16 +112,100 @@ function buildPrompt(facts) {
   const positions = Object.entries(facts.positionsByAssetType || {})
     .map(([type, value]) => `${type}: ${value}`)
     .join(", ");
-  const breaches = (facts.eligibilityBreaches || []).length
-    ? facts.eligibilityBreaches.join(", ")
-    : "none";
+  const list = (xs) => ((xs || []).length ? xs.join(", ") : "none");
+  const shares = Object.entries(facts.concentrationByAssetType || {})
+    .map(([type, share]) => `${type}: ${(share * 100).toFixed(1)}%`)
+    .join(", ");
   return [
     `Agreement: ${facts.agreementId}`,
     `As of: ${facts.asOfNote}`,
-    `Total posted value: ${facts.totalPostedValue}`,
+    `Total posted value (after haircuts): ${facts.totalPostedValue}`,
+    `Required collateral: ${facts.requiredCollateral}`,
+    `Coverage ratio: ${(facts.coverageRatio * 100).toFixed(1)}%`,
     `Positions by asset type: ${positions || "none"}`,
-    `Eligibility breaches: ${breaches}`,
+    `Share of book by asset type: ${shares || "none"}`,
+    `Eligibility breaches: ${list(facts.eligibilityBreaches)}`,
+    `Concentration breaches: ${list(facts.concentrationBreaches)}`,
   ].join("\n");
+}
+
+// ---------------------------------------------------------------------
+// Substitution optimiser
+// ---------------------------------------------------------------------
+//
+// The candidate moves come from rules.js, a mirror of the on-ledger
+// rulebook, so the model only ever chooses between moves that already pass
+// eligibility, coverage and concentration. It picks by index and explains
+// why against the treasurer's stated goal. It cannot invent a move, and the
+// move it picks still has to pass the real rulebook on-ledger at Agree and
+// Settle. With no API key, the best-scoring valid move is returned with a
+// deterministic explanation.
+
+const rules = require("../ui/rules.js");
+
+const OPTIMISER_SYSTEM_PROMPT =
+  "You are a collateral optimisation assistant for a pledgor's treasury desk. You are given a goal " +
+  "and a numbered list of substitutions that have already been checked against the agreement's " +
+  "eligibility, haircut, coverage and concentration rules. Choose the single best one for the goal. " +
+  'Reply with JSON only: {"choice": <number>, "explanation": "<two sentences, plain English, ' +
+  'citing only the figures given>"}.';
+
+function describeCandidate(c, i) {
+  return (
+    `${i}. Release ${c.outgoing.assetType} (posted ${c.outgoing.postedValue.toFixed(0)}), ` +
+    `deliver ${c.incoming.faceValue.toFixed(0)} face of ${c.incoming.assetType} ` +
+    `(posts ${c.incoming.postedValue.toFixed(0)}); coverage after ${(c.coverageAfter * 100).toFixed(1)}%; ` +
+    `annual funding benefit ${c.annualBenefit.toFixed(0)}`
+  );
+}
+
+function fallbackExplanation(c) {
+  return (
+    `Releasing ${c.outgoing.assetType} and delivering ${c.incoming.assetType} keeps the book covered ` +
+    `at ${(c.coverageAfter * 100).toFixed(1)}% and within every limit. It is the valid swap with the ` +
+    `highest estimated annual funding benefit (${c.annualBenefit.toFixed(0)}).`
+  );
+}
+
+async function suggestSubstitution(input) {
+  const candidates = rules.suggestSubstitutions(input);
+  const valid = candidates.filter((c) => c.valid).slice(0, 5);
+  const rejected = candidates.filter((c) => !c.valid);
+  if (!valid.length) {
+    return {
+      choice: null,
+      explanation: "No one-for-one substitution from the available inventory keeps this book covered and within limits.",
+      valid,
+      rejected,
+      source: "rules",
+    };
+  }
+  const fallback = { choice: 0, explanation: fallbackExplanation(valid[0]), valid, rejected, source: "rules" };
+  if (!process.env.OPENAI_API_KEY) return fallback;
+  const prompt = [`Goal: ${input.goal || "reduce funding cost"}`, "Candidates:", ...valid.map(describeCandidate)].join("\n");
+  try {
+    const raw = await callOpenAI(OPTIMISER_SYSTEM_PROMPT, prompt, 250);
+    const parsed = JSON.parse(raw.replace(/^```(json)?/, "").replace(/```$/, "").trim());
+    const choice = Number(parsed.choice);
+    if (!Number.isInteger(choice) || choice < 0 || choice >= valid.length) throw new Error("choice out of range");
+    return { choice, explanation: String(parsed.explanation), valid, rejected, source: "ai" };
+  } catch (e) {
+    return { ...fallback, note: `AI unavailable: ${e.message}` };
+  }
+}
+
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        reject(new Error("Invalid JSON body."));
+      }
+    });
+  });
 }
 
 const server = http.createServer((req, res) => {
@@ -146,7 +232,7 @@ const server = http.createServer((req, res) => {
         return;
       }
       try {
-        const narrative = await callOpenAI(buildPrompt(facts));
+        const narrative = await callOpenAI(NARRATIVE_SYSTEM_PROMPT, buildPrompt(facts));
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ narrative }));
       } catch (e) {
@@ -154,6 +240,20 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
     });
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/suggest-substitution") {
+    readJson(req)
+      .then(suggestSubstitution)
+      .then((result) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      })
+      .catch((e) => {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      });
     return;
   }
 

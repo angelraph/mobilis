@@ -2,13 +2,27 @@
 
 /*
  * Static preview data for deployments with no reachable Daml ledger (e.g.
- * this app hosted on Vercel). This is a real snapshot captured from an
- * actual local run of Setup:setup plus a live "Draft with AI" session, not
- * invented numbers. app.js falls back to this automatically when it can't
- * reach a JSON API, and labels every screen that's using it as a preview.
+ * this app hosted on Vercel). app.js falls back to this automatically when
+ * it can't reach a JSON API, and labels every screen that's using it as a
+ * preview.
+ *
+ * It is the ledger state of Setup:setup after step 3 (UST delivered, a
+ * 1,400,000 margin call applied, a corporate bond topped up, the margin call
+ * fulfilled), stopped just before the substitution so the preview's
+ * optimiser has the same UST-for-cash swap to suggest. The report figures
+ * are the ones Tests:test_regulatorSeesOnlyTheReport asserts for this book.
  */
 
 const P = (name) => `${name}::sample`;
+
+const CRITERIA = [
+  { assetType: "UST-BILL", haircut: "0.02", concentrationLimit: "1.0" },
+  { assetType: "IG-CORP-BOND", haircut: "0.05", concentrationLimit: "0.6" },
+  { assetType: "CASH-USD", haircut: "0.0", concentrationLimit: "1.0" },
+];
+
+const UST = { assetType: "UST-BILL", faceValue: "1000000.0", postedValue: "980000.0" };
+const CORP = { assetType: "IG-CORP-BOND", faceValue: "500000.0", postedValue: "475000.0" };
 
 window.MOBILIS_SAMPLE = {
   parties: {
@@ -26,26 +40,24 @@ window.MOBILIS_SAMPLE = {
       securedParty: P("SecuredParty"),
       custodian: P("Custodian"),
       regulator: P("Regulator"),
-      eligibilityCriteria: [
-        { assetType: "UST-BILL", maxHaircut: "0.02" },
-        { assetType: "IG-CORP-BOND", maxHaircut: "0.05" },
-      ],
+      eligibilityCriteria: CRITERIA,
     },
   },
 
   agreementState: {
     contractId: "sample-state",
     payload: {
-      schedule: [
-        { assetType: "IG-CORP-BOND", faceValue: "1000000.0", postedValue: "950000.0" },
-      ],
+      agreementId: "MOBILIS-CA-0001",
+      eligibilityCriteria: CRITERIA,
+      requiredCollateral: "1400000.0",
+      schedule: [UST, CORP],
     },
   },
 
   marginCalls: [
     {
       contractId: "sample-margin-1",
-      payload: { direction: "NeedsMoreCollateral", amount: "50000.0", fulfilled: true },
+      payload: { direction: "NeedsMoreCollateral", amount: "1400000.0", status: "Fulfilled" },
     },
   ],
 
@@ -54,7 +66,7 @@ window.MOBILIS_SAMPLE = {
       contractId: "sample-call-1",
       payload: {
         proposer: P("Pledgor"),
-        action: { tag: "Delivery", value: { asset: { assetType: "UST-BILL", faceValue: "1000000.0", postedValue: "980000.0" } } },
+        action: { tag: "Delivery", value: { asset: UST } },
         status: { tag: "Settled", value: {} },
       },
     },
@@ -62,13 +74,7 @@ window.MOBILIS_SAMPLE = {
       contractId: "sample-call-2",
       payload: {
         proposer: P("Pledgor"),
-        action: {
-          tag: "Substitution",
-          value: {
-            outgoing: { assetType: "UST-BILL", faceValue: "1000000.0", postedValue: "980000.0" },
-            incoming: { assetType: "IG-CORP-BOND", faceValue: "1000000.0", postedValue: "950000.0" },
-          },
-        },
+        action: { tag: "Delivery", value: { asset: CORP } },
         status: { tag: "Settled", value: {} },
       },
     },
@@ -79,8 +85,8 @@ window.MOBILIS_SAMPLE = {
         action: {
           tag: "Substitution",
           value: {
-            outgoing: { assetType: "IG-CORP-BOND", faceValue: "1000000.0", postedValue: "950000.0" },
-            incoming: { assetType: "HY-BOND", faceValue: "500000.0", postedValue: "400000.0" },
+            outgoing: CORP,
+            incoming: { assetType: "HY-BOND", faceValue: "500000.0", postedValue: "0.0" },
           },
         },
         status: { tag: "Disputed", value: { reason: "HY-BOND is not on the agreed eligibility schedule" } },
@@ -94,11 +100,21 @@ window.MOBILIS_SAMPLE = {
       payload: {
         agreementId: "MOBILIS-CA-0001",
         asOfNote: "End of Day 1",
-        totalPostedValue: "950000.0",
-        positionsByAssetType: [{ _1: "IG-CORP-BOND", _2: "950000.0" }],
+        totalPostedValue: "1455000.0",
+        requiredCollateral: "1400000.0",
+        coverageRatio: "1.0392857143",
+        positionsByAssetType: [
+          { _1: "UST-BILL", _2: "980000.0" },
+          { _1: "IG-CORP-BOND", _2: "475000.0" },
+        ],
+        concentrationByAssetType: [
+          { _1: "UST-BILL", _2: "0.6735395189" },
+          { _1: "IG-CORP-BOND", _2: "0.3264604811" },
+        ],
         eligibilityBreaches: [],
+        concentrationBreaches: [],
         narrative:
-          "The total posted value for Agreement MOBILIS-CA-0001 as of End of Day 1 is 950,000, with all positions classified as IG-CORP-BOND. There are no eligibility breaches reported.",
+          "Fully collateralised: all posted collateral is eligible, within concentration limits, and covers the requirement.",
       },
     },
   ],
