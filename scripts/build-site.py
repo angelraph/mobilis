@@ -16,6 +16,7 @@ NAV = [
     ("demo.html", "Demo"),
     ("roadmap.html", "Roadmap"),
     ("faq.html", "FAQ"),
+    ("run-locally.html", "Run locally"),
 ]
 
 
@@ -129,8 +130,8 @@ HOME = """
       <a class="btn btn-ghost" href="how-it-works.html">How it works</a>
     </div>
   </div>
-  <div class="feed" aria-label="Replay of the recorded demo cycle">
-    <div class="feed-head"><span class="live-dot"></span>Ledger feed <span class="feed-note">replay of the demo cycle</span></div>
+  <div class="feed" aria-label="Replay of the recorded demo cycle, stamped with your local time">
+    <div class="feed-head"><span class="live-dot"></span>Ledger feed <span class="feed-note">replay of the demo · your local time</span></div>
     <ol class="feed-list" id="feed"></ol>
   </div>
 </header>
@@ -319,12 +320,76 @@ FAQ = page_hero(
 </section>
 """
 
+RUN = page_hero(
+    "Run it yourself",
+    "A real Canton ledger, on your machine.",
+    "This website runs on sample data, because a static host can't run a ledger. These steps start a real Canton ledger locally and connect the same interface to it, so every button runs a real Daml transaction. About 10 minutes the first time.",
+) + """
+<section class="band">
+  <div class="wrap narrow">
+    <ol class="steps">
+      <li>
+        <h3>Install the prerequisites (once)</h3>
+        <p><b>Git</b> (<a href="https://git-scm.com">git-scm.com</a>; on Windows this also gives you <b>Git Bash</b>, which you use for every command below), <b>Java 17</b> (<a href="https://adoptium.net">adoptium.net</a>) and the <b>Daml SDK 2.10.6</b>. On macOS or Linux:</p>
+        <div class="code"><pre><code>curl -sSL https://get.daml.com/ | sh -s 2.10.6</code></pre><button class="copy" type="button">Copy</button></div>
+        <p>On Windows, use the installer from <a href="https://docs.daml.com/getting-started/installation.html">docs.daml.com</a>. Then open a new terminal and check:</p>
+        <div class="code"><pre><code>java -version
+daml version</code></pre><button class="copy" type="button">Copy</button></div>
+      </li>
+      <li>
+        <h3>Get the code</h3>
+        <div class="code"><pre><code>git clone https://github.com/angelraph/mobilis.git
+cd mobilis</code></pre><button class="copy" type="button">Copy</button></div>
+      </li>
+      <li>
+        <h3>Run the tests <span class="opt-tag">optional</span></h3>
+        <div class="code"><pre><code>cd daml
+daml test
+cd ..</code></pre><button class="copy" type="button">Copy</button></div>
+        <p>The setup scenario and all 14 tests should finish with <code>ok</code>.</p>
+      </li>
+      <li>
+        <h3>Start the ledger</h3>
+        <div class="code"><pre><code>sh scripts/demo-ledger.sh</code></pre><button class="copy" type="button">Copy</button></div>
+        <p>It builds the Daml model, starts a Canton sandbox, creates the four parties with an empty agreement, and serves the interface. Wait for <code>Demo ledger ready</code>. Keep that terminal open, and press Ctrl+C in it to stop.</p>
+      </li>
+      <li>
+        <h3>Open the interface</h3>
+        <p>All four roles on one screen: <code>http://localhost:7575/ui/demo-wall.html</code><br>
+        One role per tab: <code>http://localhost:7575/ui/index.html?role=Pledgor</code> (or <code>SecuredParty</code>, <code>Custodian</code>, <code>Regulator</code>).</p>
+      </li>
+      <li>
+        <h3>Walk through the demo</h3>
+        <ol class="walk">
+          <li><b>Pledgor</b> delivers <code>UST-BILL</code>, face <code>1000000</code>: the ledger values it at 980,000. <b>Secured party</b> agrees, <b>custodian</b> settles.</li>
+          <li><b>Secured party</b> calls margin for <code>1400000</code>; the <b>custodian</b> applies it. Coverage drops to 70%, and <b>Mark fulfilled</b> is refused.</li>
+          <li><b>Pledgor</b> delivers <code>IG-CORP-BOND</code>, face <code>500000</code>. Agree and settle, and now the margin call can be fulfilled.</li>
+          <li><b>Pledgor</b> uses the <b>Collateral optimiser</b> ("Get back UST-BILL", then <b>Suggest</b>) and proposes the swap. Agree and settle.</li>
+          <li><b>Pledgor</b> proposes <code>IG-CORP-BOND</code> → <code>CASH-USD</code>, face <code>100</code>. The <b>secured party</b> clicks Agree, and the ledger refuses it.</li>
+          <li><b>Custodian</b> generates the audit report. The <b>regulator</b> sees that report and nothing else.</li>
+        </ol>
+      </li>
+    </ol>
+    <div class="note">
+      <h3>Good to know</h3>
+      <ul>
+        <li>The AI features are optional. Without an API key, the optimiser uses its rules engine and everything still works. To turn the AI on: <code>cd proxy</code>, put <code>OPENAI_API_KEY=…</code> in <code>.env</code>, then run <code>node server.js</code>.</li>
+        <li>The first click after a fresh start can take up to 30 seconds while the ledger warms up.</li>
+        <li><code>daml: command not found</code>? Open a new terminal. On Windows, use Git Bash.</li>
+        <li>Every start is a fresh, empty ledger. The full guide is in <a href="https://github.com/angelraph/mobilis/blob/master/docs/RUN-LOCALLY.md">docs/RUN-LOCALLY.md</a>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+"""
+
 PAGES = [
     ("home.html", "Mobilis · collateral mobility on Canton", "Collateral that moves. Rules that hold. Mobilis moves collateral in one atomic Canton transaction, with every rule enforced by the ledger.", HOME),
     ("how-it-works.html", "How it works · Mobilis", "Propose, agree, settle: six collateral rules enforced by the Canton ledger, and an optimiser that works inside them.", HOW),
     ("four-views.html", "Four views · Mobilis", "One transaction, four views: each party sees only its slice, and the regulator sees a report and nothing else.", VIEWS),
     ("demo.html", "Demo · Mobilis", "A narrated margin cycle recorded on a live Canton ledger, with tests and a measured cycle time.", DEMO),
     ("roadmap.html", "Roadmap · Mobilis", "From one agreement on DevNet to a custodian's whole book on Canton MainNet.", ROADMAP),
+    ("run-locally.html", "Run locally · Mobilis", "Run a real Canton ledger with Mobilis on your own machine in a few steps.", RUN),
     ("faq.html", "FAQ · Mobilis", "Plain answers about Mobilis: the idea, the technology, the AI and the business.", FAQ),
 ]
 

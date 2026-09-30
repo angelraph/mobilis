@@ -9,6 +9,28 @@
 #
 set -eu
 
+# On Windows (Git Bash) the Daml installer only provides daml.cmd, which a
+# POSIX sh won't find by name, so look for it on the PATH (and in the
+# default install folder) ourselves.
+if ! command -v daml >/dev/null 2>&1; then
+  DAML_CMD=""
+  OLD_IFS=$IFS; IFS=:
+  for dir in $PATH ${APPDATA:+$(cygpath -u "$APPDATA" 2>/dev/null)/daml/bin}; do
+    if [ -f "$dir/daml.cmd" ]; then DAML_CMD="$dir/daml.cmd"; break; fi
+  done
+  IFS=$OLD_IFS
+  if [ -n "$DAML_CMD" ]; then
+    daml() { "$DAML_CMD" "$@"; }
+  else
+    echo "Daml SDK not found. Install it first (see docs/RUN-LOCALLY.md), then open a new terminal." >&2
+    exit 1
+  fi
+fi
+if ! command -v java >/dev/null 2>&1; then
+  echo "Java not found. Install a JDK 17 (see docs/RUN-LOCALLY.md), then open a new terminal." >&2
+  exit 1
+fi
+
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 

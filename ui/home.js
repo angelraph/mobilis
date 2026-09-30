@@ -42,23 +42,23 @@
     ["SWAP", "IG-CORP → CASH 100 · book short", "no", "✕ refused"],
     ["REPORT", "Regulator · coverage 100.0%", "ok", "✓ published"],
   ];
+  // Timestamps are the viewer's real local time (the first few entries are
+  // backdated a few seconds each), so the replay never shows a made-up clock.
   const MAX = 9;
+  const SEED = 5;
   let i = 0;
-  let clock = 9 * 3600 + 30 * 60;
-  const tick = () => {
+  const stamp = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  const tick = (secondsAgo = 0) => {
     const [kind, text, tone, result] = events[i % events.length];
-    clock += 7 + Math.floor(Math.random() * 20);
-    const hh = String(Math.floor(clock / 3600) % 24).padStart(2, "0");
-    const mm = String(Math.floor(clock / 60) % 60).padStart(2, "0");
-    const ss = String(clock % 60).padStart(2, "0");
+    const [hh, mm, ss] = stamp(new Date(Date.now() - secondsAgo * 1000)).split(":");
     const li = document.createElement("li");
     li.innerHTML = `<span class="t">${hh}:${mm}:${ss}</span><span><span class="${tone}">${kind}</span> ${text}</span><span class="${tone}">${result}</span>`;
     list.prepend(li);
     while (list.children.length > MAX) list.lastElementChild.remove();
     i++;
   };
-  for (let n = 0; n < 5; n++) tick();
-  setInterval(tick, 1800);
+  for (let n = SEED; n > 0; n--) tick(n * 2);
+  setInterval(() => tick(0), 1800);
 })();
 
 // Reveal sections as they scroll into view.
@@ -106,3 +106,21 @@
   });
   els.forEach((el) => io.observe(el));
 })();
+
+// Copy buttons on command blocks.
+document.querySelectorAll(".code .copy").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const text = btn.parentElement.querySelector("code").innerText;
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "Copied";
+    } catch (e) {
+      btn.textContent = "Select & copy";
+    }
+    btn.classList.add("done");
+    setTimeout(() => {
+      btn.textContent = "Copy";
+      btn.classList.remove("done");
+    }, 1600);
+  });
+});

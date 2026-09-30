@@ -56,6 +56,15 @@
     width: 133.33%; height: 133.33%;
     transform: scale(0.75); transform-origin: 0 0;
   }
+  .wall-nav { margin-left: auto; display: flex; gap: 8px; flex: none; }
+  .wall-nav a {
+    color: var(--text); text-decoration: none; font-size: 14px;
+    padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
+    background: rgba(6, 24, 42, 0.7); transition: border-color 0.2s;
+  }
+  .wall-nav a:hover { border-color: var(--accent); }
+  #wall-back { color: var(--accent); }
+  .wall-nav a.sample { color: #ffd09a; border-color: rgba(255, 160, 40, 0.4); background: rgba(255, 160, 40, 0.08); }
   @media (max-width: 900px) {
     main { grid-template-columns: 1fr; grid-template-rows: repeat(4, 70vh); }
   }
@@ -65,6 +74,12 @@
 <header>
   <img class="mark" src="media/mark.png" alt="Mobilis">
   <div class="caption" id="caption">One Canton transaction, four different views of it.<small>Pledgor · Secured Party · Custodian · Regulator</small></div>
+  <nav class="wall-nav" aria-label="Leave the four-view wall">
+    <a id="wall-sample" class="sample" href="run-locally.html" hidden>Sample data · run it live →</a>
+    <a id="wall-back" href="index.html">← Back</a>
+    <a href="index.html">App</a>
+    <a href="home.html">Home</a>
+  </nav>
 </header>
 <main>
   <div class="view" id="view-Pledgor"><span class="label">Pledgor</span><iframe title="Pledgor" src="index.html?role=Pledgor"></iframe></div>
@@ -85,6 +100,24 @@
       el.appendChild(s);
     }
   };
+  // Back returns to wherever the viewer came from on this site (usually the
+  // app), and falls back to the app when the wall was opened directly.
+  document.getElementById("wall-back").addEventListener("click", (e) => {
+    if (document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1) {
+      e.preventDefault();
+      history.back();
+    }
+  });
+  // On the static preview (no ledger) each view hides its own sample-data
+  // banner; show one notice here instead, linking to the run-locally guide.
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      try {
+        const mock = [...document.querySelectorAll("iframe")].some((f) => f.contentWindow.eval("typeof state !== 'undefined' && state.mock"));
+        document.getElementById("wall-sample").hidden = !mock;
+      } catch (e) { /* cross-origin: leave hidden */ }
+    }, 1500);
+  });
   window.focusRole = (role) => {
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${role}`));
   };

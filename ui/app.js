@@ -154,6 +154,7 @@ const state = {
   mock: false,
   aiBusy: false,
   draftNarrative: null, // the custodian's in-progress report narrative; reset to null after each successful report
+  refreshLabel: "Refresh", // the Refresh button shows progress and confirms it ran
   errorKind: "ledger", // "ledger" = the ledger refused an action; "info" = anything else
   lastCoverage: null, // coverage ratio at the previous render, so the gauge animates from it
   seenStatus: {}, // contractId -> last rendered status, to flash rows that just changed
@@ -246,7 +247,7 @@ function sampleDataFor(role) {
   return { agreement: s.agreement, agreementState: s.agreementState, marginCalls: s.marginCalls, calls: s.calls, reports: s.reports };
 }
 
-async function refresh() {
+async function refresh(force = false) {
   if (state.mock) {
     state.data = sampleDataFor(state.role);
     state.error = null;
@@ -272,7 +273,7 @@ async function refresh() {
     const unchanged = !state.error && JSON.stringify(nextData) === JSON.stringify(state.data);
     state.data = nextData;
     state.error = null;
-    if (unchanged) return; // nothing to redraw; avoids flicker and scroll jumps on idle polling
+    if (unchanged && !force) return; // nothing to redraw; avoids flicker and scroll jumps on idle polling
   } catch (e) {
     state.errorKind = "info";
     state.error = e.message;
@@ -280,10 +281,26 @@ async function refresh() {
   render();
 }
 
+// The Refresh button: re-query the ledger (or reload the sample data) and
+// say so, so a click always visibly does something even if nothing changed.
+async function manualRefresh() {
+  if (state.refreshLabel === "Refreshing…") return;
+  state.refreshLabel = "Refreshing…";
+  state.error = null;
+  render();
+  await refresh(true);
+  state.refreshLabel = state.error ? "Retry" : state.mock ? "Sample data ✓" : "Up to date ✓";
+  render();
+  setTimeout(() => {
+    state.refreshLabel = "Refresh";
+    render();
+  }, 1600);
+}
+
 async function runAction(fn) {
   if (state.mock) {
     state.errorKind = "info";
-    state.error = "This is a static preview with sample data. No ledger is connected. Run this locally to try actions (see docs/setup-guide.md in the repo).";
+    state.error = "This is a static preview with sample data. No ledger is connected. To try the actions on a real Canton ledger, run it locally: see the Run locally page (run-locally.html).";
     render();
     return;
   }
@@ -553,7 +570,7 @@ function renderRoleSwitcher() {
         ),
       ]
     ),
-    el("button", { class: "refresh-btn", onclick: () => refresh(), text: "Refresh" }),
+    el("button", { class: `refresh-btn${state.refreshLabel === "Refresh" ? "" : " is-active"}`, onclick: () => manualRefresh(), text: state.refreshLabel }),
   ]);
   return bar;
 }
@@ -952,7 +969,7 @@ function renderCustodianTools() {
       if (state.aiBusy) return;
       if (state.mock) {
         state.errorKind = "info";
-        state.error = "This is a static preview with sample data. The AI drafting proxy isn't reachable here. Run this locally to try it (see docs/setup-guide.md in the repo).";
+        state.error = "This is a static preview with sample data. The AI drafting proxy isn't reachable here. Run it locally to try it: see the Run locally page (run-locally.html).";
         render();
         return;
       }
@@ -1061,7 +1078,9 @@ function renderBody() {
     app.appendChild(
       el("div", { class: "preview-banner" }, [
         el("strong", { text: "Static preview: sample data. " }),
-        el("span", { text: "No Daml ledger is connected here. Run this locally to see it live and try the actions (see docs/setup-guide.md in the repo)." }),
+        el("span", { text: "No Daml ledger is connected here, so actions are disabled. To run it live on a real Canton ledger: " }),
+        el("code", { text: "sh scripts/demo-ledger.sh" }),
+        el("a", { href: "run-locally.html", text: "Step-by-step guide →" }),
       ])
     );
   }

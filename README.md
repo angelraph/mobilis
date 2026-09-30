@@ -7,6 +7,21 @@ Built for HackCanton Season 3, RWA & Business Workflows track.
 Repo: [github.com/angelraph/mobilis](https://github.com/angelraph/mobilis)
 Demo video (3.5 min, narrated, recorded from a live Canton ledger): [mobilis-demo.mp4](https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.mp4)
 Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) · FAQ: [docs/FAQ.md](docs/FAQ.md)
+
+## Quick start: run it on a real Canton ledger
+
+Needs Git, Java 17 and the Daml SDK 2.10.6 (on Windows, use Git Bash).
+Full step-by-step guide: [docs/RUN-LOCALLY.md](docs/RUN-LOCALLY.md), also at
+[mobilis-angelraphs-projects.vercel.app/run-locally.html](https://mobilis-angelraphs-projects.vercel.app/run-locally.html).
+
+```bash
+git clone https://github.com/angelraph/mobilis.git
+cd mobilis
+sh scripts/demo-ledger.sh
+```
+
+Then open http://localhost:7575/ui/demo-wall.html to see all four roles on
+one screen.
 Static UI preview (sample data, no live ledger; see below): [mobilis-angelraphs-projects.vercel.app](https://mobilis-angelraphs-projects.vercel.app)
 
 ## The one-line pitch

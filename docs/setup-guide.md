@@ -1,5 +1,8 @@
 # Setup Guide
 
+> **Quickest path:** see [RUN-LOCALLY.md](RUN-LOCALLY.md). This file keeps
+> the original, more detailed setup notes.
+
 Status: done. The SDK and a JDK are installed on this machine, the project
 builds clean, and the full lifecycle script has been run end to end against
 a live sandbox. The privacy check passed exactly as designed. This doc also
