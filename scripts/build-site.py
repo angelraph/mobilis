@@ -247,14 +247,14 @@ VIEWS = page_hero(
 DEMO = page_hero(
     "The demo",
     "One margin cycle, live on a Canton ledger.",
-    "A narrated walkthrough recorded through the real interface: a delivery, a margin call the ledger won't let anyone fake, the optimiser's swap, a bad move refused, and the regulator's view.",
+    "A narrated walkthrough recorded through the real interface: a delivery, a margin call the ledger won't let anyone fake, the optimiser's swap, a bad move refused, a price drop and its top-up, and the regulator's view.",
 ) + """
 <section class="band">
   <div class="wrap">
     <div class="video reveal">
       <video src="media/mobilis-demo.mp4" poster="media/demo-poster.jpg" controls preload="metadata" playsinline></video>
     </div>
-    <p class="fine">3 min 26 s · recorded from a local Canton sandbox through the real UI. <a href="demo-wall.html">Open the four views</a> with sample data, or <a href="https://github.com/angelraph/mobilis">run it yourself</a>.</p>
+    <p class="fine">3 min 10 s · narrated · recorded from a local Canton sandbox through the real UI. <a href="demo-wall.html">Open the four views</a> with sample data, or <a href="https://github.com/angelraph/mobilis">run it yourself</a>.</p>
   </div>
 </section>
 

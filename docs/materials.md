@@ -217,7 +217,7 @@ can't offer for regulated collateral.
 ---
 
 **Live preview (sample data, no ledger):** https://mobilis-angelraphs-projects.vercel.app
-**Demo video (3.5 min, narrated and captioned, recorded from a live Canton ledger):** https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.mp4
+**Demo video (3 min, narrated and captioned, recorded from a live Canton ledger):** https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.mp4
 **Repository:** https://github.com/angelraph/mobilis (run it locally: `docs/setup-guide.md`)
 
 ### What the video shows
@@ -239,7 +239,10 @@ All four roles on one screen, each reading the same Canton ledger:
    custodian settles it atomically.
 5. **A bad move is blocked:** a swap that would leave the book short is
    rejected by the ledger at Agree.
-6. **The regulator's screen:** one audit report showing coverage,
+6. **Prices move:** the custodian marks the corporate bond down to 80. The
+   ledger re-values the book, which falls short; releases are refused, and
+   the pledgor's one-click top-up restores full coverage.
+7. **The regulator's screen:** one audit report showing coverage,
    positions, share of book and breaches, and nothing else. The regulator
    isn't hidden from the rest by the UI. Its node simply holds no other
    contracts.

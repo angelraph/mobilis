@@ -1,0 +1,78 @@
+[
+ {
+  "id": "intro",
+  "text": "This is Mobilis: collateral mobility on Canton. Four institutions share one ledger, and each sees only its own slice."
+ },
+ {
+  "id": "delivery",
+  "text": "Step one. The pledgor posts a Treasury bill, one million face value. The ledger, not the browser, decides what it's worth."
+ },
+ {
+  "id": "agree",
+  "text": "The secured party agrees. Before it can, the ledger checks the move against the agreement's rules."
+ },
+ {
+  "id": "settle",
+  "text": "The custodian settles it atomically. After the two percent haircut, the ledger values it at nine hundred and eighty thousand."
+ },
+ {
+  "id": "margin",
+  "text": "Step two. The exposure moves, and the secured party calls for one point four million of collateral."
+ },
+ {
+  "id": "apply",
+  "text": "The custodian applies it. Coverage drops to seventy percent: the book is four hundred and twenty thousand short."
+ },
+ {
+  "id": "fulfilTry",
+  "text": "Can the custodian simply mark it fulfilled? No. The ledger checks that the book is actually covered, and refuses."
+ },
+ {
+  "id": "topup",
+  "text": "Step three. The pledgor tops up with a corporate bond. After a five percent haircut, coverage is back above one hundred percent."
+ },
+ {
+  "id": "fulfilOk",
+  "text": "Now the margin call can be marked fulfilled. The ledger confirms the book is covered."
+ },
+ {
+  "id": "optimiser",
+  "text": "Step four. The pledgor needs its Treasuries back for a repo. The collateral optimiser looks for the cheapest swap that the rules allow."
+ },
+ {
+  "id": "ruledOut",
+  "text": "It rules out the tempting swaps and says why: corporate bonds would break their concentration limit, and high yield isn't eligible. Cash is the valid move."
+ },
+ {
+  "id": "swap",
+  "text": "One asset out, one in, in a single transaction. The secured party is never unprotected."
+ },
+ {
+  "id": "bad",
+  "text": "Step five. What if someone tries a bad swap? Here, the corporate bond is swapped for just one hundred dollars of cash."
+ },
+ {
+  "id": "refused",
+  "text": "The ledger refuses it. It can't even be agreed, because the rules live on the ledger itself."
+ },
+ {
+  "id": "mark",
+  "text": "Step six. Markets move. The custodian marks the corporate bond down to eighty, and the ledger re-values the whole book at once. It is now short."
+ },
+ {
+  "id": "topupSuggest",
+  "text": "Until it's topped up, every release is refused. The pledgor's screen proposes the cheapest top-up. One click, agreed, and settled."
+ },
+ {
+  "id": "report",
+  "text": "Step seven. The custodian publishes the regulator's report, computed by the ledger at the latest price marks."
+ },
+ {
+  "id": "regulator",
+  "text": "And the regulator sees that report, and nothing else: coverage, positions, breaches, and the valuation date. Its node never received the agreement or the calls."
+ },
+ {
+  "id": "outro",
+  "text": "Mobilis. Every collateral rule, enforced by the ledger. Built on Canton, for HackCanton season three."
+ }
+]
