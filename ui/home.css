@@ -537,3 +537,104 @@ h1, h2, h3, p { margin: 0; }
 
 /* The real logo mark replaces the placeholder tile. */
 img.brand-mark { display: block; object-fit: cover; background: none; box-shadow: 0 0 24px rgba(111, 208, 178, 0.3); }
+
+/* ---- multi-page pieces ---- */
+
+.nav-links a[aria-current="page"] { color: var(--text); position: relative; }
+.nav-links a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -19px;
+  height: 2px;
+  background: var(--ribbon);
+}
+
+/* A shorter hero for inner pages, same sunburst. */
+.page-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 104px 0 72px;
+  border-bottom: 1px solid var(--line-soft);
+  background:
+    radial-gradient(700px 400px at 90% 120%, rgba(255, 160, 40, 0.12), transparent 60%),
+    radial-gradient(700px 500px at 0% 0%, rgba(43, 179, 240, 0.10), transparent 60%);
+}
+.page-hero .sunburst { width: 1100px; height: 1100px; margin-top: -550px; right: -560px; opacity: 0.35; }
+.page-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(2, 12, 22, 0.95) 0%, rgba(2, 12, 22, 0.7) 45%, rgba(2, 12, 22, 0) 75%);
+}
+.page-hero .wrap { position: relative; z-index: 1; }
+.page-hero h1 {
+  font-size: clamp(40px, 6vw, 76px);
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+  max-width: 16ch;
+  margin-bottom: 22px;
+}
+.page-hero .lede { margin-bottom: 0; }
+
+/* Home: teaser tiles that lead to each page. */
+.explore { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px; }
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 26px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(10, 33, 54, 0.9), rgba(6, 24, 42, 0.9));
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.3s var(--ease), border-color 0.3s, box-shadow 0.3s;
+}
+.tile:hover { transform: translateY(-4px); border-color: var(--cyan-deep); box-shadow: 0 24px 50px -28px rgba(43, 179, 240, 0.6); }
+.tile-n { font-family: var(--mono); font-size: 13px; color: var(--cyan); }
+.tile h3 { font-size: 22px; font-weight: 400; letter-spacing: -0.02em; }
+.tile p { color: var(--muted); font-size: 15px; flex: 1; }
+.tile-go { font-family: var(--mono); font-size: 13px; color: var(--lime); }
+
+/* How it works: the six rules. */
+.rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 36px; }
+.rule { padding: 22px 24px; border-radius: 14px; border: 1px solid var(--line); background: rgba(6, 24, 42, 0.7); }
+.rule-q { display: block; font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--lime); margin-bottom: 8px; }
+.rule p { color: var(--muted); font-size: 15px; }
+
+.never { margin-top: 12px !important; font-size: 13px !important; color: var(--faint) !important; }
+
+.cta-band { text-align: left; }
+.cta-band h2 { margin-bottom: 28px; }
+
+.next-band { padding: 56px 0; border-top: 1px solid var(--line-soft); }
+.next { display: inline-flex; flex-direction: column; gap: 6px; text-decoration: none; }
+.next .eyebrow { margin-bottom: 0; }
+.next-title { font-size: clamp(28px, 4vw, 44px); font-weight: 300; letter-spacing: -0.03em; color: var(--text); transition: color 0.2s; }
+.next:hover .next-title { color: var(--cyan); }
+
+@media (max-width: 960px) {
+  .nav { flex-wrap: wrap; row-gap: 10px; }
+  .nav-links {
+    display: flex;
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    gap: 18px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .nav-links a { white-space: nowrap; }
+  .nav-links a[aria-current="page"]::after { bottom: -4px; }
+  .explore { grid-template-columns: repeat(2, 1fr); }
+  .rules { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .page-hero { padding: 72px 0 56px; }
+  .explore, .rules { grid-template-columns: 1fr; }
+}

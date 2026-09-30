@@ -217,7 +217,7 @@ can't offer for regulated collateral.
 ---
 
 **Live preview (sample data, no ledger):** https://mobilis-angelraphs-projects.vercel.app
-**Demo video (2.5 min, captioned, recorded from a live Canton ledger):** https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.webm
+**Demo video (3.5 min, narrated and captioned, recorded from a live Canton ledger):** https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.mp4
 **Repository:** https://github.com/angelraph/mobilis (run it locally: `docs/setup-guide.md`)
 
 ### What the video shows

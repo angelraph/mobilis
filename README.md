@@ -5,7 +5,7 @@ An atomic, privacy-preserving collateral mobility engine for Canton.
 Built for HackCanton Season 3, RWA & Business Workflows track.
 
 Repo: [github.com/angelraph/mobilis](https://github.com/angelraph/mobilis)
-Demo video (2.5 min, recorded from a live Canton ledger): [mobilis-demo.webm](https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.webm)
+Demo video (3.5 min, narrated, recorded from a live Canton ledger): [mobilis-demo.mp4](https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.mp4)
 Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) · FAQ: [docs/FAQ.md](docs/FAQ.md)
 Static UI preview (sample data, no live ledger; see below): [mobilis-angelraphs-projects.vercel.app](https://mobilis-angelraphs-projects.vercel.app)
 
