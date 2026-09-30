@@ -1,0 +1,193 @@
+module Tests where
+
+import DA.Assert ((===))
+import Daml.Script
+import Types
+import CollateralAgreement
+import AuditReport
+import Setup (demoCriteria, mkAsset)
+import qualified Valuation as V
+
+-- | Everything a test needs after opening an agreement.
+data Env = Env
+  with
+    pledgor : Party
+    securedParty : Party
+    custodian : Party
+    regulator : Party
+    agreementCid : ContractId CollateralAgreement
+
+-- | Allocate the four parties and open an agreement on the demo schedule.
+initEnv : Script (Env, ContractId CollateralAgreementState)
+initEnv = do
+  pledgor <- allocateParty "Pledgor"
+  securedParty <- allocateParty "SecuredParty"
+  custodian <- allocateParty "Custodian"
+  regulator <- allocateParty "Regulator"
+  agreementCid <- submitMulti [pledgor, securedParty] [] do
+    createCmd CollateralAgreement with
+      pledgor, securedParty, custodian, regulator
+      agreementId = "TEST-CA"
+      eligibilityCriteria = demoCriteria
+  stateCid <- submit custodian do exerciseCmd agreementCid CollateralAgreement_OpenState
+  let env = Env with pledgor, securedParty, custodian, regulator, agreementCid
+  pure (env, stateCid)
+
+-- | Propose (as pledgor), agree (as secured party) and settle a call.
+move : Env -> ContractId CollateralAgreementState -> CallAction -> Script (ContractId CollateralAgreementState)
+move env stateCid action = do
+  callCid <- proposeAsPledgor env action
+  agreed <- submit env.securedParty do exerciseCmd callCid Call_Agree with stateCid = stateCid
+  (_, newStateCid) <- submit env.custodian do exerciseCmd agreed Call_Settle with stateCid = stateCid
+  pure newStateCid
+
+proposeAsPledgor : Env -> CallAction -> Script (ContractId CollateralCall)
+proposeAsPledgor env action = submit env.pledgor do
+  exerciseCmd env.agreementCid CollateralAgreement_ProposeCall with proposer = env.pledgor, action
+
+-- | Apply a NeedsMoreCollateral margin call of the given size.
+marginCall : Env -> ContractId CollateralAgreementState -> Decimal -> Script (ContractId CollateralAgreementState, ContractId MarginCall)
+marginCall env stateCid amount = do
+  mcCid <- submit env.securedParty do
+    exerciseCmd env.agreementCid CollateralAgreement_RequestMarginCall with amount, direction = NeedsMoreCollateral
+  submit env.custodian do exerciseCmd stateCid State_ApplyMarginCall with marginCallCid = mcCid
+
+-- | A book of 980,000 UST + 475,000 corp bond against 1,400,000 required.
+coveredBook : Script (Env, ContractId CollateralAgreementState)
+coveredBook = do
+  (env, s0) <- initEnv
+  s1 <- move env s0 (Delivery with asset = mkAsset "UST-BILL" 1000000.0)
+  (s2, _) <- marginCall env s1 1400000.0
+  s3 <- move env s2 (Delivery with asset = mkAsset "IG-CORP-BOND" 500000.0)
+  pure (env, s3)
+
+-- The ledger, not the caller, decides what an asset is worth.
+test_haircutComputedOnLedger : Script ()
+test_haircutComputedOnLedger = do
+  (env, s0) <- initEnv
+  let inflated = PostedAsset with assetType = "UST-BILL", faceValue = 1000000.0, postedValue = 5000000.0
+  s1 <- move env s0 (Delivery with asset = inflated)
+  Some st <- queryContractId env.custodian s1
+  map (\a -> a.postedValue) st.schedule === [980000.0]
+
+test_ineligibleAssetRejectedAtAgree : Script ()
+test_ineligibleAssetRejectedAtAgree = do
+  (env, s0) <- initEnv
+  callCid <- proposeAsPledgor env (Delivery with asset = mkAsset "HY-BOND" 1000000.0)
+  submitMustFail env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s0
+
+-- The $10M-bond-for-$1 problem: a substitution that leaves the book short
+-- of required collateral cannot be agreed.
+test_undercollateralisingSubstitutionRejected : Script ()
+test_undercollateralisingSubstitutionRejected = do
+  (env, s3) <- coveredBook
+  callCid <- proposeAsPledgor env
+    (Substitution with outgoing = mkAsset "UST-BILL" 1000000.0, incoming = mkAsset "CASH-USD" 1.0)
+  submitMustFail env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s3
+
+test_undercollateralisingReturnRejected : Script ()
+test_undercollateralisingReturnRejected = do
+  (env, s3) <- coveredBook
+  callCid <- proposeAsPledgor env (Return with asset = mkAsset "IG-CORP-BOND" 500000.0)
+  submitMustFail env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s3
+
+test_concentrationLimitEnforced : Script ()
+test_concentrationLimitEnforced = do
+  (env, s3) <- coveredBook
+  -- Swapping the UST for more corp bonds would make the book 100% corp,
+  -- over the 60% limit, even though value is more than sufficient.
+  callCid <- proposeAsPledgor env
+    (Substitution with outgoing = mkAsset "UST-BILL" 1000000.0, incoming = mkAsset "IG-CORP-BOND" 2000000.0)
+  submitMustFail env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s3
+
+test_cannotReleaseAssetNotPosted : Script ()
+test_cannotReleaseAssetNotPosted = do
+  (env, s3) <- coveredBook
+  callCid <- proposeAsPledgor env (Return with asset = mkAsset "UST-BILL" 7.0)
+  submitMustFail env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s3
+
+-- Returning one of two identical lots releases one lot, not both.
+test_returnRemovesOneLot : Script ()
+test_returnRemovesOneLot = do
+  (env, s0) <- initEnv
+  let lot = mkAsset "UST-BILL" 100.0
+  s1 <- move env s0 (Delivery with asset = lot)
+  s2 <- move env s1 (Delivery with asset = lot)
+  s3 <- move env s2 (Return with asset = lot)
+  Some st <- queryContractId env.custodian s3
+  length st.schedule === 1
+
+-- Settlement re-checks against the state as it is at settlement time.
+test_settleRechecksAgainstCurrentState : Script ()
+test_settleRechecksAgainstCurrentState = do
+  (env, s0) <- initEnv
+  s1 <- move env s0 (Delivery with asset = mkAsset "UST-BILL" 1000000.0)
+  -- A return is agreed while there is no exposure...
+  callCid <- proposeAsPledgor env (Return with asset = mkAsset "UST-BILL" 1000000.0)
+  agreed <- submit env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s1
+  -- ...then a margin call lands before the custodian settles it.
+  (s2, _) <- marginCall env s1 500000.0
+  submitMustFail env.custodian do exerciseCmd agreed Call_Settle with stateCid = s2
+
+test_marginCallFulfilledOnlyWhenCovered : Script ()
+test_marginCallFulfilledOnlyWhenCovered = do
+  (env, s0) <- initEnv
+  s1 <- move env s0 (Delivery with asset = mkAsset "UST-BILL" 1000000.0)
+  (s2, mcCid) <- marginCall env s1 1400000.0
+  submitMustFail env.custodian do exerciseCmd mcCid MarginCall_MarkFulfilled with stateCid = s2
+  s3 <- move env s2 (Delivery with asset = mkAsset "IG-CORP-BOND" 500000.0)
+  mcDone <- submit env.custodian do exerciseCmd mcCid MarginCall_MarkFulfilled with stateCid = s3
+  Some mc <- queryContractId env.securedParty mcDone
+  mc.status === Fulfilled
+
+test_marginCallCannotBeAppliedTwice : Script ()
+test_marginCallCannotBeAppliedTwice = do
+  (env, s0) <- initEnv
+  mcCid <- submit env.securedParty do
+    exerciseCmd env.agreementCid CollateralAgreement_RequestMarginCall with amount = 100.0, direction = NeedsMoreCollateral
+  (s1, _) <- submit env.custodian do exerciseCmd s0 State_ApplyMarginCall with marginCallCid = mcCid
+  submitMustFail env.custodian do exerciseCmd s1 State_ApplyMarginCall with marginCallCid = mcCid
+
+test_wrongControllersRejected : Script ()
+test_wrongControllersRejected = do
+  (env, s0) <- initEnv
+  -- The proposer cannot agree its own call.
+  callCid <- proposeAsPledgor env (Delivery with asset = mkAsset "UST-BILL" 1000.0)
+  submitMustFail env.pledgor do exerciseCmd callCid Call_Agree with stateCid = s0
+  -- Only the custodian settles, and only the secured party calls margin.
+  agreed <- submit env.securedParty do exerciseCmd callCid Call_Agree with stateCid = s0
+  submitMustFail env.pledgor do exerciseCmd agreed Call_Settle with stateCid = s0
+  submitMustFail env.pledgor do
+    exerciseCmd env.agreementCid CollateralAgreement_RequestMarginCall with amount = 1.0, direction = ExcessCollateral
+  -- The regulator cannot act on anything but its report.
+  submitMustFail env.regulator do
+    exerciseCmd s0 State_GenerateAuditReport with agreementCid = env.agreementCid, asOfNote = "x", narrativeOverride = None
+
+test_regulatorSeesOnlyTheReport : Script ()
+test_regulatorSeesOnlyTheReport = do
+  (env, s3) <- coveredBook
+  reportCid <- submit env.custodian do
+    exerciseCmd s3 State_GenerateAuditReport with agreementCid = env.agreementCid, asOfNote = "EOD", narrativeOverride = None
+  reports <- query @AuditReport env.regulator
+  calls <- query @CollateralCall env.regulator
+  states <- query @CollateralAgreementState env.regulator
+  agreements <- query @CollateralAgreement env.regulator
+  margin <- query @MarginCall env.regulator
+  length reports === 1
+  length calls + length states + length agreements + length margin === 0
+  Some r <- queryContractId env.regulator reportCid
+  r.totalPostedValue === 1455000.0
+  r.requiredCollateral === 1400000.0
+  r.eligibilityBreaches === []
+  r.concentrationBreaches === []
+
+-- Pure rulebook checks, no ledger needed.
+test_valuationRules : Script ()
+test_valuationRules = do
+  let book = map (V.valueAsset demoCriteria) [mkAsset "UST-BILL" 1000000.0, mkAsset "IG-CORP-BOND" 500000.0]
+  V.totalPosted book === 1455000.0
+  V.coverageRatio 0.0 book === 1.0
+  V.concentrationBreaches demoCriteria [V.valueAsset demoCriteria (mkAsset "IG-CORP-BOND" 1.0)] === ["IG-CORP-BOND"]
+  case V.checkMove demoCriteria 1400000.0 book (Return with asset = V.valueAsset demoCriteria (mkAsset "UST-BILL" 1000000.0)) of
+    Left _ -> pure ()
+    Right _ -> abort "expected the return to be rejected"

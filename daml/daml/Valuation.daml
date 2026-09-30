@@ -1,0 +1,111 @@
+module Valuation where
+
+import DA.List (delete, dedup)
+import Types
+
+-- | Pure collateral math shared by the templates, the audit report and the
+-- tests. Keeping it here (not inline in choices) means there is exactly one
+-- definition of "eligible", "worth enough" and "too concentrated", and the
+-- ledger enforces that definition rather than any UI or AI suggestion.
+
+-- | The criterion for an asset type, if it is on the schedule at all.
+criterionFor : [EligibilityCriterion] -> Text -> Optional EligibilityCriterion
+criterionFor criteria t = case filter (\c -> c.assetType == t) criteria of
+  c :: _ -> Some c
+  [] -> None
+
+-- | Recompute postedValue from the agreement's own haircut. An asset type
+-- that is not on the schedule counts for nothing; it is rejected at Agree
+-- time anyway, this just guarantees it can never add coverage.
+valueAsset : [EligibilityCriterion] -> PostedAsset -> PostedAsset
+valueAsset criteria a = case criterionFor criteria a.assetType of
+  Some c -> a with postedValue = a.faceValue * (1.0 - c.haircut)
+  None -> a with postedValue = 0.0
+
+valueAction : [EligibilityCriterion] -> CallAction -> CallAction
+valueAction criteria action = case action of
+  Delivery asset -> Delivery with asset = valueAsset criteria asset
+  Return asset -> Return with asset = valueAsset criteria asset
+  Substitution outgoing incoming ->
+    Substitution with outgoing = valueAsset criteria outgoing, incoming = valueAsset criteria incoming
+
+totalPosted : [PostedAsset] -> Decimal
+totalPosted schedule = sum (map (\a -> a.postedValue) schedule)
+
+-- | Posted value per asset type, in first-seen order.
+positionsByType : [PostedAsset] -> [(Text, Decimal)]
+positionsByType schedule =
+  [ (t, totalPosted (filter (\a -> a.assetType == t) schedule))
+  | t <- dedup (map (\a -> a.assetType) schedule) ]
+
+-- | Share of total posted value per asset type (0.0 when nothing is posted).
+concentrations : [PostedAsset] -> [(Text, Decimal)]
+concentrations schedule =
+  let total = totalPosted schedule
+  in if total == 0.0 then []
+     else map (\(t, v) -> (t, v / total)) (positionsByType schedule)
+
+-- | Asset types whose share exceeds their concentration limit.
+concentrationBreaches : [EligibilityCriterion] -> [PostedAsset] -> [Text]
+concentrationBreaches criteria schedule =
+  [ t | (t, share) <- concentrations schedule
+      , Some c <- [criterionFor criteria t]
+      , share > c.concentrationLimit ]
+
+-- | Asset types on the schedule that are not eligible at all.
+eligibilityBreaches : [EligibilityCriterion] -> [PostedAsset] -> [Text]
+eligibilityBreaches criteria schedule =
+  dedup [ a.assetType | a <- schedule, None <- [criterionFor criteria a.assetType] ]
+
+-- | Coverage ratio: posted value over required collateral. With no exposure
+-- the position is fully covered by definition.
+coverageRatio : Decimal -> [PostedAsset] -> Decimal
+coverageRatio required schedule =
+  if required <= 0.0 then 1.0 else totalPosted schedule / required
+
+-- | Validate a movement against the live schedule and return the schedule
+-- after it settles, or the reason it must be rejected. This is the single
+-- rulebook both Call_Agree (early, so a bad call never reaches Agreed) and
+-- State_ApplyCall (at settlement, against the then-current schedule) run.
+--
+-- Rules:
+--   1. every incoming asset type is on the eligibility schedule;
+--   2. any outgoing asset (Return, Substitution) is actually posted;
+--   3. a movement that releases collateral cannot leave the position
+--      below required collateral (a Delivery only ever adds, so it may
+--      settle even while a shortfall remains);
+--   4. no incoming asset type ends up over its concentration limit.
+checkMove : [EligibilityCriterion] -> Decimal -> [PostedAsset] -> CallAction -> Either Text [PostedAsset]
+checkMove criteria required schedule action = do
+  let incoming = case action of
+        Delivery asset -> [asset]
+        Return _ -> []
+        Substitution _ inAsset -> [inAsset]
+      outgoing = case action of
+        Delivery _ -> []
+        Return asset -> [asset]
+        Substitution outAsset _ -> [outAsset]
+  case filter (\a -> criterionFor criteria a.assetType == None) incoming of
+    a :: _ -> Left ("Rejected: " <> a.assetType <> " is not on the agreed eligibility schedule")
+    [] -> Right ()
+  case filter (`notElem` schedule) outgoing of
+    a :: _ -> Left ("Rejected: " <> a.assetType <> " being released is not currently posted")
+    [] -> Right ()
+  let newSchedule = foldl (flip delete) schedule outgoing ++ incoming
+      newTotal = totalPosted newSchedule
+      releases = not (null outgoing)
+  if releases && newTotal < required
+    then Left ("Rejected: movement would leave posted value " <> show newTotal
+               <> " below required collateral " <> show required)
+    else Right ()
+  case filter (\t -> t `elem` map (\a -> a.assetType) incoming) (concentrationBreaches criteria newSchedule) of
+    t :: _ -> Left ("Rejected: " <> t <> " would exceed its concentration limit")
+    [] -> Right ()
+  pure newSchedule
+
+-- | The same check as a plain assertion inside an Update.
+enforceMove : CanAbort m => [EligibilityCriterion] -> Decimal -> [PostedAsset] -> CallAction -> m [PostedAsset]
+enforceMove criteria required schedule action =
+  case checkMove criteria required schedule action of
+    Left err -> abort err
+    Right s -> pure s
