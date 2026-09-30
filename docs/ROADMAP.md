@@ -18,8 +18,12 @@ The rulebook MVP, working end to end on a local Canton sandbox:
   ledger re-validates its pick.
 - Regulator audit report: coverage, positions, share of book and breaches,
   with no access to raw contracts.
-- 14 Daml Script tests, a demo video, and a measured cycle time of about
-  2 seconds of ledger time.
+- Custodian price marks: the whole book re-values at once, and a drop that
+  leaves it short blocks releases until the pledgor tops up.
+- Returns and excess-collateral suggestions, and the cheapest top-up.
+- 20 Daml Script tests, 16 rulebook cases checked on both ledger and
+  browser, a demo video, and a measured cycle time of about 2 seconds of
+  ledger time.
 
 ## Q4 2026: DevNet
 

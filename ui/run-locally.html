@@ -62,7 +62,7 @@ cd mobilis</code></pre><button class="copy" type="button">Copy</button></div>
         <div class="code"><pre><code>cd daml
 daml test
 cd ..</code></pre><button class="copy" type="button">Copy</button></div>
-        <p>The setup scenario and all 14 tests should finish with <code>ok</code>.</p>
+        <p>The setup scenario, all 20 tests and the parity check should finish with <code>ok</code>. For the browser side: <code>node --test ui/rules.test.js</code>.</p>
       </li>
       <li>
         <h3>Start the ledger</h3>
@@ -82,6 +82,7 @@ cd ..</code></pre><button class="copy" type="button">Copy</button></div>
           <li><b>Pledgor</b> delivers <code>IG-CORP-BOND</code>, face <code>500000</code>. Agree and settle, and now the margin call can be fulfilled.</li>
           <li><b>Pledgor</b> uses the <b>Collateral optimiser</b> ("Get back UST-BILL", then <b>Suggest</b>) and proposes the swap. Agree and settle.</li>
           <li><b>Pledgor</b> proposes <code>IG-CORP-BOND</code> → <code>CASH-USD</code>, face <code>100</code>. The <b>secured party</b> clicks Agree, and the ledger refuses it.</li>
+          <li><b>Custodian</b> marks <code>IG-CORP-BOND</code> at <code>80</code> in <b>Mark to market</b>. The book re-values and falls short, and the <b>pledgor</b>'s <b>Collateral actions</b> card proposes the cheapest top-up.</li>
           <li><b>Custodian</b> generates the audit report. The <b>regulator</b> sees that report and nothing else.</li>
         </ol>
       </li>

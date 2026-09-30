@@ -61,7 +61,7 @@
 <section class="band deep">
   <div class="wrap">
     <p class="eyebrow">The rulebook</p>
-    <h2>Six guarantees, enforced in Daml.</h2>
+    <h2>Eight guarantees, enforced in Daml.</h2>
     <div class="rules reveal">
       <div class="rule"><span class="rule-q">Eligible?</span><p>Rejects ineligible asset types before a move can be agreed.</p></div>
       <div class="rule"><span class="rule-q">Worth?</span><p>Computes value from the agreed haircut and ignores what the caller sends.</p></div>
@@ -69,8 +69,10 @@
       <div class="rule"><span class="rule-q">Concentrated?</span><p>Caps each asset type's share of the book.</p></div>
       <div class="rule"><span class="rule-q">Margin call met?</span><p>Can only be marked fulfilled when coverage is really there.</p></div>
       <div class="rule"><span class="rule-q">Book moved?</span><p>Settlement re-checks every rule against the book as it is at that moment.</p></div>
+      <div class="rule"><span class="rule-q">Prices moved?</span><p>The custodian marks prices to market and the ledger re-values the whole book at once. A drop that leaves the book short blocks every release until the pledgor tops up.</p></div>
+      <div class="rule"><span class="rule-q">Preview honest?</span><p>The browser's copy of the rules is held to the ledger's answers by 16 shared test cases run on both sides.</p></div>
     </div>
-    <p class="fine">Each rule has a Daml Script test that proves it refuses what it should. See <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Valuation.daml">Valuation.daml</a> and <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Tests.daml">Tests.daml</a>.</p>
+    <p class="fine">Each rule has a Daml Script test (20 in total) that proves it refuses what it should. See <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Valuation.daml">Valuation.daml</a> and <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Tests.daml">Tests.daml</a>.</p>
   </div>
 </section>
 
@@ -79,7 +81,7 @@
     <div>
       <p class="eyebrow">Collateral optimiser</p>
       <h2>AI that works inside hard rules.</h2>
-      <p class="section-lede">"I need my Treasuries back for a repo." The optimiser finds the cheapest swap the agreement allows and explains why the tempting ones are illegal. The AI can only choose among rule-checked moves, and the ledger checks its choice again.</p>
+      <p class="section-lede">"I need my Treasuries back for a repo." The optimiser finds the cheapest swap the agreement allows and explains why the tempting ones are illegal. The AI can only choose among rule-checked moves, and the ledger checks its choice again. The same engine proposes the cheapest top-up when prices fall, and which lots can go back when the book is over-covered.</p>
     </div>
     <div class="opt reveal">
       <div class="opt-row ok"><span>UST out → 925,000 cash in</span><b>Valid · 100% covered</b></div>

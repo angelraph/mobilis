@@ -97,7 +97,8 @@ outreach to collateral operations leaders. See the GTM draft in
 A first version existed before the delivery phase and is tagged
 `pre-hackathon-baseline`. Built during the delivery phase: on-ledger
 valuation, coverage, concentration limits, the settlement re-check, the
-margin-call lifecycle, the optimiser, 14 tests, the demo tooling and this
+margin-call lifecycle, price marks, returns, the optimiser, 20 ledger tests
+and 16 parity cases, the demo tooling and this
 interface. The README lists everything, and
 `git diff pre-hackathon-baseline..HEAD` shows the full change.
 

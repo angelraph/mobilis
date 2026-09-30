@@ -43,8 +43,9 @@ daml test
 cd ..
 ```
 
-You should see the `Setup:setup` scenario and all 14 tests in
-`Tests.daml` finish with `ok`.
+You should see the `Setup:setup` scenario, all 20 tests in `Tests.daml` and
+the `ParityCases` check finish with `ok`. To check the browser's copy of the
+rules too: `node --test ui/rules.test.js`.
 
 ## 4. Start the ledger
 
@@ -80,7 +81,8 @@ Leave this terminal open. Press **Ctrl+C** in it to stop everything.
 5. **Pledgor:** deliver `IG-CORP-BOND` with face value `500000`, then agree and settle it. Now **Mark fulfilled** works.
 6. **Pledgor:** in *Collateral optimiser*, choose "Get back UST-BILL" and click **Suggest**, then **Propose this substitution**. Agree and settle it.
 7. **Pledgor:** propose a bad swap: `IG-CORP-BOND` → `CASH-USD` with face value `100`. **Secured party:** click **Agree** and watch the ledger refuse it.
-8. **Custodian:** click **Generate audit report**. The **Regulator** sees that report and nothing else.
+8. **Custodian:** in *Mark to market*, mark `IG-CORP-BOND` at `80`. The book re-values and falls short, and releases are now refused. The **Pledgor**'s *Collateral actions* card proposes the cheapest top-up; agree and settle it.
+9. **Custodian:** click **Generate audit report**. The **Regulator** sees that report, with the valuation date, and nothing else.
 
 ## 7. Optional: the AI features
 

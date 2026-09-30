@@ -143,7 +143,7 @@ HOME = """
     <div class="explore reveal">
       <a class="tile" href="how-it-works.html"><span class="tile-n">01</span><h3>How it works</h3><p>Propose, agree and settle. Six rules checked on-ledger, and an optimiser that works inside them.</p><span class="tile-go">Read →</span></a>
       <a class="tile" href="four-views.html"><span class="tile-n">02</span><h3>Four views</h3><p>One transaction, four slices. The regulator sees a report and nothing else.</p><span class="tile-go">See →</span></a>
-      <a class="tile" href="demo.html"><span class="tile-n">03</span><h3>Demo &amp; proof</h3><p>A narrated margin cycle on a live Canton ledger, 14 tests, and a measured cycle time.</p><span class="tile-go">Watch →</span></a>
+      <a class="tile" href="demo.html"><span class="tile-n">03</span><h3>Demo &amp; proof</h3><p>A narrated margin cycle on a live Canton ledger, 20 ledger tests, and a measured cycle time.</p><span class="tile-go">Watch →</span></a>
       <a class="tile" href="roadmap.html"><span class="tile-n">04</span><h3>Roadmap</h3><p>From one agreement on DevNet to a custodian's whole book on MainNet.</p><span class="tile-go">Plan →</span></a>
     </div>
   </div>
@@ -185,7 +185,7 @@ HOW = page_hero(
 <section class="band deep">
   <div class="wrap">
     <p class="eyebrow">The rulebook</p>
-    <h2>Six guarantees, enforced in Daml.</h2>
+    <h2>Eight guarantees, enforced in Daml.</h2>
     <div class="rules reveal">
       <div class="rule"><span class="rule-q">Eligible?</span><p>Rejects ineligible asset types before a move can be agreed.</p></div>
       <div class="rule"><span class="rule-q">Worth?</span><p>Computes value from the agreed haircut and ignores what the caller sends.</p></div>
@@ -193,8 +193,10 @@ HOW = page_hero(
       <div class="rule"><span class="rule-q">Concentrated?</span><p>Caps each asset type's share of the book.</p></div>
       <div class="rule"><span class="rule-q">Margin call met?</span><p>Can only be marked fulfilled when coverage is really there.</p></div>
       <div class="rule"><span class="rule-q">Book moved?</span><p>Settlement re-checks every rule against the book as it is at that moment.</p></div>
+      <div class="rule"><span class="rule-q">Prices moved?</span><p>The custodian marks prices to market and the ledger re-values the whole book at once. A drop that leaves the book short blocks every release until the pledgor tops up.</p></div>
+      <div class="rule"><span class="rule-q">Preview honest?</span><p>The browser's copy of the rules is held to the ledger's answers by 16 shared test cases run on both sides.</p></div>
     </div>
-    <p class="fine">Each rule has a Daml Script test that proves it refuses what it should. See <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Valuation.daml">Valuation.daml</a> and <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Tests.daml">Tests.daml</a>.</p>
+    <p class="fine">Each rule has a Daml Script test (20 in total) that proves it refuses what it should. See <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Valuation.daml">Valuation.daml</a> and <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Tests.daml">Tests.daml</a>.</p>
   </div>
 </section>
 
@@ -203,7 +205,7 @@ HOW = page_hero(
     <div>
       <p class="eyebrow">Collateral optimiser</p>
       <h2>AI that works inside hard rules.</h2>
-      <p class="section-lede">"I need my Treasuries back for a repo." The optimiser finds the cheapest swap the agreement allows and explains why the tempting ones are illegal. The AI can only choose among rule-checked moves, and the ledger checks its choice again.</p>
+      <p class="section-lede">"I need my Treasuries back for a repo." The optimiser finds the cheapest swap the agreement allows and explains why the tempting ones are illegal. The AI can only choose among rule-checked moves, and the ledger checks its choice again. The same engine proposes the cheapest top-up when prices fall, and which lots can go back when the book is over-covered.</p>
     </div>
     <div class="opt reveal">
       <div class="opt-row ok"><span>UST out → 925,000 cash in</span><b>Valid · 100% covered</b></div>
@@ -261,9 +263,9 @@ DEMO = page_hero(
     <p class="eyebrow">Proof</p>
     <h2>Built, tested and measured.</h2>
     <div class="grid4 reveal">
-      <div class="proof"><p class="big" data-count="14">14</p><p>Daml tests passing, mostly on the rejection paths</p></div>
+      <div class="proof"><p class="big" data-count="20">20</p><p>Daml tests passing, plus 16 rulebook cases checked on both ledger and browser</p></div>
       <div class="proof"><p class="big">~2s</p><p>ledger time for a full margin cycle (3 runs, local sandbox)</p></div>
-      <div class="proof"><p class="big" data-count="6">6</p><p>rules enforced on-ledger at agree and settle</p></div>
+      <div class="proof"><p class="big" data-count="8">8</p><p>guarantees enforced on-ledger, including price marks</p></div>
       <div class="proof"><p class="big">0</p><p>raw contracts visible to the regulator</p></div>
     </div>
   </div>
@@ -278,9 +280,9 @@ ROADMAP = page_hero(
 <section class="band">
   <div class="wrap">
     <ol class="timeline reveal">
-      <li class="done"><span class="when">Oct 2026 · Built</span><h3>The rulebook MVP</h3><p>On-ledger valuation, coverage, concentration limits and settlement re-checks, a margin-call lifecycle, the collateral optimiser, the regulator report and 14 tests.</p></li>
+      <li class="done"><span class="when">Oct 2026 · Built</span><h3>The rulebook MVP</h3><p>On-ledger valuation with custodian price marks, coverage, concentration limits and settlement re-checks, a margin-call lifecycle, returns, the collateral optimiser with top-up and return suggestions, the regulator report, 20 ledger tests and 16 shared parity cases.</p></li>
       <li><span class="when">Q4 2026</span><h3>DevNet</h3><p>Move to Canton 3.x and the JSON Ledger API v2, real authentication, one agreement running across separate participant nodes.</p></li>
-      <li><span class="when">Q1 2027</span><h3>Design-partner pilot</h3><p>One custodian and one of its pledgor clients. A live pricing feed, tokenised holdings via the Canton token standard, cycle time measured against today's process.</p></li>
+      <li><span class="when">Q1 2027</span><h3>Design-partner pilot</h3><p>One custodian and one of its pledgor clients. A market-data feed behind the custodian's price marks, tokenised holdings via the Canton token standard, cycle time measured against today's process.</p></li>
       <li><span class="when">Q2 2027</span><h3>Portfolio scale</h3><p>Many agreements per custodian, netting across agreements, intraday margin, and portfolio-level optimisation.</p></li>
       <li><span class="when">H2 2027</span><h3>Production</h3><p>MainNet, Featured App status, and more custodians and triparty agents.</p></li>
     </ol>
@@ -301,10 +303,12 @@ FAQ = page_hero(
       <details><summary>Is this really running on Canton?</summary><p>Yes. The rules are Daml smart contracts, and the demo video was recorded from a Canton sandbox through the real UI over the JSON API. The public preview uses sample data because a static host can't run a ledger. DevNet deployment is the next milestone.</p></details>
       <details><summary>What does the AI actually do? Can it move assets?</summary><p>No, it can't move anything. The optimiser lists every swap the agreement's rules allow and scores each one by funding cost. The AI picks one of those and explains the choice. A person proposes it, the counterparty agrees and the custodian settles, and the ledger re-checks it at each step. With no AI available, the best-scoring valid move is used.</p></details>
       <details><summary>How can the regulator see a report but not the book?</summary><p>Canton only sends a party the contracts it is a stakeholder on. The regulator is an observer on the audit report contract and nothing else, so its node never receives the agreement, the schedule or the calls. The tests query the ledger as the regulator and assert zero.</p></details>
+      <details><summary>What happens when prices fall?</summary><p>The custodian, as valuation agent, marks prices to market on the ledger, and every posted lot is re-valued in the same transaction. If that leaves the book short, the ledger refuses any return or swap that releases value, a margin call can't be marked fulfilled, and the pledgor's screen proposes the cheapest top-up that restores full coverage. The regulator's next report states which marks its figures use.</p></details>
+      <details><summary>How do you know the browser's suggestions match the ledger?</summary><p>The optimiser and the previews run a JavaScript copy of the rulebook. Sixteen shared test cases are run against both that copy and the ledger's own Daml rulebook, and both must give the same answer. Whatever the browser suggests is checked again by the ledger anyway.</p></details>
       <details><summary>What if the book changes after a swap is agreed?</summary><p>Settlement re-runs every rule against the book as it stands at that moment. If a margin call landed in between and the swap would now leave the book short, settlement is refused. That case has its own test.</p></details>
       <details><summary>Who pays for this?</summary><p>Custodians and triparty agents. They carry the operational cost and the regulatory exposure today. The model is a platform fee per custodian plus a fee per active agreement, which we are validating in interviews.</p></details>
       <details><summary>Why not a public blockchain, or a shared database?</summary><p>Collateral books are confidential, so a public chain exposes too much. A shared database needs one party everyone trusts to run it. Canton gives each party its own node, shares only what each is entitled to see, and settles multi-party moves atomically.</p></details>
-      <details><summary>What was built during the hackathon?</summary><p>A first version existed before the delivery phase and is tagged <code>pre-hackathon-baseline</code> in the repo. The on-ledger valuation, coverage, concentration limits, settlement re-check, margin-call lifecycle, optimiser, tests and this interface were built during it. The README lists everything.</p></details>
+      <details><summary>What was built during the hackathon?</summary><p>A first version existed before the delivery phase and is tagged <code>pre-hackathon-baseline</code> in the repo. The on-ledger valuation and price marks, coverage, concentration limits, settlement re-check, margin-call lifecycle, returns, optimiser, tests and this interface were built during it. The README lists everything.</p></details>
     </div>
   </div>
 </section>
@@ -346,7 +350,7 @@ cd mobilis</code></pre><button class="copy" type="button">Copy</button></div>
         <div class="code"><pre><code>cd daml
 daml test
 cd ..</code></pre><button class="copy" type="button">Copy</button></div>
-        <p>The setup scenario and all 14 tests should finish with <code>ok</code>.</p>
+        <p>The setup scenario, all 20 tests and the parity check should finish with <code>ok</code>. For the browser side: <code>node --test ui/rules.test.js</code>.</p>
       </li>
       <li>
         <h3>Start the ledger</h3>
@@ -366,6 +370,7 @@ cd ..</code></pre><button class="copy" type="button">Copy</button></div>
           <li><b>Pledgor</b> delivers <code>IG-CORP-BOND</code>, face <code>500000</code>. Agree and settle, and now the margin call can be fulfilled.</li>
           <li><b>Pledgor</b> uses the <b>Collateral optimiser</b> ("Get back UST-BILL", then <b>Suggest</b>) and proposes the swap. Agree and settle.</li>
           <li><b>Pledgor</b> proposes <code>IG-CORP-BOND</code> → <code>CASH-USD</code>, face <code>100</code>. The <b>secured party</b> clicks Agree, and the ledger refuses it.</li>
+          <li><b>Custodian</b> marks <code>IG-CORP-BOND</code> at <code>80</code> in <b>Mark to market</b>. The book re-values and falls short, and the <b>pledgor</b>'s <b>Collateral actions</b> card proposes the cheapest top-up.</li>
           <li><b>Custodian</b> generates the audit report. The <b>regulator</b> sees that report and nothing else.</li>
         </ol>
       </li>

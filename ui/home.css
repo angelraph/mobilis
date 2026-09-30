@@ -601,7 +601,7 @@ img.brand-mark { display: block; object-fit: cover; background: none; box-shadow
 .tile-go { font-family: var(--mono); font-size: 13px; color: var(--lime); }
 
 /* How it works: the six rules. */
-.rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 36px; }
+.rules { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 36px; }
 .rule { padding: 22px 24px; border-radius: 14px; border: 1px solid var(--line); background: rgba(6, 24, 42, 0.7); }
 .rule-q { display: block; font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--lime); margin-bottom: 8px; }
 .rule p { color: var(--muted); font-size: 15px; }
