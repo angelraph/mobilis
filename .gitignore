@@ -5,3 +5,5 @@ proxy/.env
 Thumbs.db
 .DS_Store
 .claude/
+scripts/video/
+scripts/final.png

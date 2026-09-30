@@ -222,6 +222,10 @@ async function loadRole(role) {
   const url = new URL(location.href);
   url.searchParams.set("role", role);
   history.replaceState(null, "", url);
+  // Draw the role's (possibly empty) view now: refresh() skips redrawing
+  // when the data hasn't changed, which for a role with nothing visible
+  // yet (a regulator before its first report) would leave the intro up.
+  render();
   await refresh();
 }
 

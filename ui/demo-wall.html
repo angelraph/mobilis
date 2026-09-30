@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobilis · four views</title>
+<style>
+  :root {
+    --bg: #11181a;
+    --panel: #1b2426;
+    --text: #eef2f0;
+    --muted: #9fb0ab;
+    --accent: #6fd3b0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 20px; min-height: 88px;
+    border-bottom: 1px solid #2a3538;
+  }
+  .mark {
+    width: 36px; height: 36px; border-radius: 8px; flex: none;
+    display: grid; place-items: center; font-weight: 700;
+    background: var(--accent); color: #0d1f1a;
+  }
+  .caption { font-size: 22px; line-height: 1.3; }
+  .caption small { display: block; font-size: 15px; color: var(--muted); margin-top: 2px; }
+  main {
+    flex: 1; display: grid; gap: 10px; padding: 10px;
+    grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    min-height: 0;
+  }
+  /* overflow: clip (not hidden) so scrolling inside a role's view can
+     never scroll the quadrant itself and shift the frame out of place. */
+  .view { position: relative; background: var(--panel); border-radius: 10px; overflow: clip; min-height: 0; transition: box-shadow 0.3s; }
+  .view.active { box-shadow: 0 0 0 3px var(--accent); }
+  .label {
+    position: absolute; top: 8px; right: 10px; z-index: 2;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    background: rgba(17, 24, 26, 0.85); color: var(--accent); padding: 3px 8px; border-radius: 6px;
+  }
+  /* Render each role at desktop width, scaled to fit its quadrant. */
+  iframe {
+    border: 0; background: #fff;
+    width: 133.33%; height: 133.33%;
+    transform: scale(0.75); transform-origin: 0 0;
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; grid-template-rows: repeat(4, 70vh); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark">M</div>
+  <div class="caption" id="caption">One Canton transaction, four different views of it.<small>Pledgor · Secured Party · Custodian · Regulator</small></div>
+</header>
+<main>
+  <div class="view" id="view-Pledgor"><span class="label">Pledgor</span><iframe title="Pledgor" src="index.html?role=Pledgor"></iframe></div>
+  <div class="view" id="view-SecuredParty"><span class="label">Secured Party</span><iframe title="Secured Party" src="index.html?role=SecuredParty"></iframe></div>
+  <div class="view" id="view-Custodian"><span class="label">Custodian</span><iframe title="Custodian" src="index.html?role=Custodian"></iframe></div>
+  <div class="view" id="view-Regulator"><span class="label">Regulator</span><iframe title="Regulator" src="index.html?role=Regulator"></iframe></div>
+</main>
+<script>
+  // Hooks for a presenter or the recording script: set the caption, and
+  // highlight the role that is acting.
+  window.setCaption = (title, sub) => {
+    const el = document.getElementById("caption");
+    el.textContent = title;
+    if (sub) {
+      const s = document.createElement("small");
+      s.textContent = sub;
+      el.appendChild(s);
+    }
+  };
+  window.focusRole = (role) => {
+    document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${role}`));
+  };
+</script>
+</body>
+</html>

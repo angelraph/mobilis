@@ -19,6 +19,27 @@ demoCriteria =
 mkAsset : Text -> Decimal -> PostedAsset
 mkAsset assetType faceValue = PostedAsset with assetType, faceValue, postedValue = 0.0
 
+-- | A clean starting point for a live or recorded demo: the four parties
+-- and an open agreement with an empty schedule, so every step can be
+-- performed through the UI. Run it against a fresh sandbox with
+-- `daml script --script-name Setup:demoStart` (see scripts/demo-ledger.sh).
+demoStart : Script ()
+demoStart = script do
+  pledgor <- allocatePartyWithHint "Pledgor" (PartyIdHint "Pledgor")
+  securedParty <- allocatePartyWithHint "SecuredParty" (PartyIdHint "SecuredParty")
+  custodian <- allocatePartyWithHint "Custodian" (PartyIdHint "Custodian")
+  regulator <- allocatePartyWithHint "Regulator" (PartyIdHint "Regulator")
+  agreementCid <- submitMulti [pledgor, securedParty] [] do
+    createCmd CollateralAgreement with
+      pledgor
+      securedParty
+      custodian
+      regulator
+      agreementId = "MOBILIS-CA-0001"
+      eligibilityCriteria = demoCriteria
+  _ <- submit custodian do exerciseCmd agreementCid CollateralAgreement_OpenState
+  pure ()
+
 -- | End-to-end demo scenario for Mobilis: allocates the four parties,
 -- opens a collateral agreement, and walks one realistic margin cycle:
 -- delivery, margin call, top-up, substitution (UST out, cash in), a
