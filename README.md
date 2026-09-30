@@ -4,7 +4,7 @@ An atomic, privacy-preserving collateral mobility engine for Canton.
 
 Built for HackCanton Season 3, RWA & Business Workflows track.
 
-Repo: [github.com/angelraph/mobilis](https://github.com/angelraph/mobilis) (private)
+Repo: [github.com/angelraph/mobilis](https://github.com/angelraph/mobilis)
 Static UI preview (sample data, no live ledger; see below): [mobilis-angelraphs-projects.vercel.app](https://mobilis-angelraphs-projects.vercel.app)
 
 ## The one-line pitch
@@ -13,6 +13,47 @@ Mobilis lets a pledgor, a secured party, and a custodian move, substitute,
 and recall eligible collateral against a live margin obligation. Each party
 sees only their slice of the truth. A regulator gets an automated exposure
 and compliance report without ever seeing anyone's full book.
+
+## Pre-existing work vs. work done during the hackathon
+
+HackCanton's rules allow building on existing code as long as it is
+disclosed and the new work can be told apart. So, plainly:
+
+- **Before the delivery phase (Sep 13, 2026):** everything up to and
+  including commit `5f69c00`, tagged `pre-hackathon-baseline`. That was the
+  first version of the Daml model (agreement, calls, eligibility check by
+  asset type, audit report), the role-switcher UI, the AI narrative proxy,
+  and the docs.
+- **During the delivery phase (Sep 18 to Oct 9, 2026):** every commit after
+  that tag. Compare with
+  `git diff pre-hackathon-baseline..HEAD`, or see the list in
+  [Built during HackCanton](#built-during-hackcanton) below.
+
+## Built during HackCanton
+
+The baseline checked one thing: whether an asset type was eligible. It
+trusted the caller for what an asset was worth, and a substitution never
+checked value, so a $10M bond could be swapped for $1 of an eligible asset.
+The delivery-phase work turns Mobilis into a collateral engine that
+enforces the whole rulebook on the ledger:
+
+| Problem a collateral desk has | What the ledger now does | Where |
+|---|---|---|
+| Is this asset eligible? | Rejects ineligible assets at Agree (baseline) | `Valuation.checkMove` |
+| What is it actually worth? | Computes posted value from the agreed haircut and ignores what the caller sends | `Valuation.valueAsset`, `CollateralAgreement_ProposeCall` |
+| Is the exposure still covered? | Tracks required collateral from margin calls, and refuses any return or substitution that would leave the book short | `State_ApplyMarginCall`, `Valuation.checkMove` |
+| Is the book too concentrated? | Enforces per-asset-type concentration limits | `Valuation.concentrationBreaches` |
+| Is a margin call really met? | Marks a margin call fulfilled only when posted value covers what's required | `MarginCall_MarkFulfilled` |
+| Did the position move after the deal was agreed? | Settlement re-runs the rulebook against the book as it stands at settlement | `State_ApplyCall` |
+| Which asset should I post? | A collateral optimiser finds the cheapest swap the rules allow. The AI picks among rule-checked moves only, and the ledger checks the pick again | `ui/rules.js`, `proxy/server.js` `/suggest-substitution` |
+| What does the regulator see? | Coverage ratio, required collateral, share of book per asset type, and eligibility and concentration breaches, still as a summary only | `AuditReport` |
+
+`daml test` runs 14 Daml Script tests (`daml/daml/Tests.daml`), most of
+them negative paths: an ineligible asset, an undercollateralising
+substitution or return, a concentration breach, releasing an asset that
+isn't posted, a margin call applied twice or marked fulfilled while short,
+wrong controllers, settlement after the book moved, and the regulator
+seeing nothing but its report.
 
 ## Why this, why now
 
@@ -115,15 +156,20 @@ reader, no Daml or blockchain background assumed.
 daml/               the Daml model
   daml/
     Types.daml                shared data types
+    Valuation.daml            the rulebook: haircuts, coverage, concentration,
+                               and checkMove, the one check every movement passes
     CollateralAgreement.daml  CollateralAgreement, CollateralAgreementState, MarginCall, CollateralCall
     AuditReport.daml          the regulator-facing summary contract
-    Setup.daml                a Daml Script that runs one full lifecycle and
+    Setup.daml                a Daml Script that runs one full margin cycle and
                                proves the privacy model by querying the ledger
                                as each party
+    Tests.daml                14 Daml Script tests, mostly negative paths
   daml.yaml
 ui/                  the role-switcher UI, a static page served by the JSON API
   index.html
   app.js
+  rules.js           JavaScript mirror of Valuation.daml, for previews and the optimiser
+  sample-data.js     static preview data for deployments with no ledger
   styles.css
   config.js          generated; see scripts/generate-config.sh
 scripts/
@@ -166,8 +212,9 @@ The same static files are also deployed to Vercel at
 [mobilis-angelraphs-projects.vercel.app](https://mobilis-angelraphs-projects.vercel.app)
 for a quick look without installing anything. There's no Daml ledger
 behind that deployment (Vercel hosts static sites, not a JVM sandbox), so
-it automatically falls back to a bundled sample dataset, a real snapshot
-captured from a local run, clearly labeled as a static preview. Actions
+it automatically falls back to a bundled sample dataset (the demo
+scenario's book just before its substitution, so the optimiser has a move
+to suggest), clearly labeled as a static preview. Actions
 show an honest message instead of failing. Run it locally per the setup
 guide for the real, live, interactive version.
 
@@ -198,6 +245,14 @@ Regulator sees 1 audit report(s), expect 1
 Regulator sees 0 raw collateral call(s), expect 0
 Regulator sees 0 raw schedule state(s), expect 0
 ```
+
+After the delivery-phase rulebook work, `daml test` passes all 14 tests
+plus the Setup scenario. The UI was also driven against a live sandbox
+through its own action functions: a margin call applied, "Mark fulfilled"
+refused by the ledger while the book was short, a top-up delivered, an
+undercollateralising return refused at Agree, an optimiser-suggested
+substitution proposed, agreed and settled, and the regulator's report
+showing coverage and concentration with zero raw calls or state visible.
 
 See [docs/setup-guide.md](docs/setup-guide.md) for the exact commands (a
 Daml SDK and JDK are installed on this machine) and what's next.

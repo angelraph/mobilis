@@ -4,3 +4,4 @@ proxy/.env
 *.log
 Thumbs.db
 .DS_Store
+.claude/
