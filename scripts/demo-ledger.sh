@@ -34,8 +34,10 @@ fi
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 
-(cd daml && daml build)
-scripts/generate-config.sh
+if [ -z "${SKIP_BUILD:-}" ]; then
+  (cd daml && daml build)
+  sh scripts/generate-config.sh
+fi
 
 DAR="$ROOT/daml/.daml/dist/mobilis-0.1.0.dar"
 UI_DIR="$ROOT/ui"
@@ -55,7 +57,10 @@ until daml ledger list-parties --host localhost --port 6865 >/dev/null 2>&1; do
 done
 daml script --dar "$DAR" --script-name Setup:demoStart --ledger-host localhost --ledger-port 6865
 
+# JSON_API_ADDRESS=0.0.0.0 lets a hosted container accept outside traffic;
+# locally it stays on 127.0.0.1.
 daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
+  --address "${JSON_API_ADDRESS:-127.0.0.1}" \
   --allow-insecure-tokens --static-content "prefix=ui,directory=$UI_DIR" &
 JSONAPI=$!
 

@@ -33,7 +33,8 @@ window.MOBILIS_CONFIG = {
   packageId: "$PACKAGE_ID",
   jsonApiBase: "", // same-origin: the JSON API serves this UI as static content
   ledgerId: "sandbox",
-  applicationId: "mobilis-ui"
+  applicationId: "mobilis-ui",
+  hosted: ${MOBILIS_HOSTED:-false} // true on the public demo ledger (shared, resets on a schedule)
 };
 EOF
 

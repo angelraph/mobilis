@@ -810,3 +810,6 @@ body.embedded::before { display: none; }
 .action-line .meta { color: var(--faint); font-family: var(--mono); font-size: 12px; }
 .action-line.blocked { color: var(--faint); }
 .action-line.blocked .meta { color: #f3b89f; }
+.hosted-banner { background: rgba(43, 179, 240, 0.07); color: #bfe6fa; border-color: rgba(43, 179, 240, 0.35); }
+.hosted-banner a { color: var(--cyan); }
+.embedded .hosted-banner { display: none; }

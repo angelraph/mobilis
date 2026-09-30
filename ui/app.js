@@ -1239,6 +1239,16 @@ function renderBody() {
     );
   }
 
+  if (CFG.hosted && !state.mock) {
+    app.appendChild(
+      el("div", { class: "preview-banner hosted-banner" }, [
+        el("strong", { text: "Public demo ledger." }),
+        el("span", { text: "A real Canton ledger, shared with everyone viewing it and reset to a clean start every few hours. For your own private copy: " }),
+        el("a", { href: "https://mobilis-angelraphs-projects.vercel.app/run-locally.html", text: "run it locally →" }),
+      ])
+    );
+  }
+
   if (!state.role) {
     app.appendChild(
       el("div", { class: "intro" }, [
