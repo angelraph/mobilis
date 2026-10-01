@@ -12,8 +12,9 @@ It takes about 10 minutes the first time, most of it installing the SDK.
 | Tool | Version | How to get it |
 |---|---|---|
 | Git | any | https://git-scm.com (on Windows this also gives you **Git Bash**, which you'll use below) |
-| Java (JDK) | 17 | https://adoptium.net (Temurin 17) |
-| Daml SDK | 2.10.6 | macOS / Linux: `curl -sSL https://get.daml.com/ \| sh -s 2.10.6` · Windows: the installer from https://docs.daml.com/getting-started/installation.html |
+| Java (JDK) | 17 or newer | https://adoptium.net (Temurin) |
+| Node.js | 18 or newer | https://nodejs.org |
+| Canton 3.x SDK (`dpm`) | 3.5.x | macOS / Linux: `curl https://get.digitalasset.com/install/install.sh \| sh` · Windows: the installer from https://get.digitalasset.com/install/latest-windows.html |
 
 Open a **new** terminal afterwards so the new commands are on your PATH. On
 Windows, use **Git Bash** for every command below.
@@ -22,10 +23,11 @@ Check that everything is installed:
 
 ```bash
 java -version
-daml version
+node --version
+dpm version
 ```
 
-(On Windows Git Bash, `daml version` may need to be `daml.cmd version`.
+(On Windows Git Bash, `dpm version` may need to be `dpm.cmd version`.
 The scripts handle this for you.)
 
 ## 2. Get the code
@@ -38,13 +40,14 @@ cd mobilis
 ## 3. Run the tests (optional, about 1 minute)
 
 ```bash
-cd daml
-daml test
+dpm build --all
+cd daml-test
+dpm test
 cd ..
 ```
 
 You should see the `Setup:setup` scenario, all 20 tests in `Tests.daml` and
-the `ParityCases` check finish with `ok`. To check the browser's copy of the
+the `ParityCases` check finish with `ok`, on Canton 3.x. To check the browser's copy of the
 rules too: `node --test ui/rules.test.js`.
 
 ## 4. Start the ledger
@@ -53,8 +56,9 @@ rules too: `node --test ui/rules.test.js`.
 sh scripts/demo-ledger.sh
 ```
 
-This builds the Daml model, starts a Canton sandbox, creates the four
-parties with an empty collateral agreement, and serves the interface.
+This builds the Daml packages, starts a Canton 3.x sandbox with the JSON
+Ledger API v2, creates the four parties with an empty collateral agreement,
+and starts a small server (`scripts/serve-ui.js`) for the interface.
 Wait until you see:
 
 ```
@@ -98,7 +102,7 @@ node server.js
 
 ## Troubleshooting
 
-- **`daml: command not found`:** open a new terminal after installing. On Windows, use Git Bash; the SDK lives in `%APPDATA%\daml\bin`.
+- **`dpm: command not found`:** open a new terminal after installing. On Windows, use Git Bash; the SDK lives in `%APPDATA%\dpm\bin`.
 - **The first click takes a while:** the first transactions after a fresh start can take up to 30 seconds while the ledger warms up. After that, each step takes about a second.
-- **Port 6865 or 7575 is already in use:** a previous run is still going. Stop it with Ctrl+C in its terminal, or restart your machine.
+- **Port 6865, 7575 or 7576 is already in use:** a previous run is still going. Stop it with Ctrl+C in its terminal, or restart your machine.
 - **You want to start over:** stop with Ctrl+C and run `sh scripts/demo-ledger.sh` again. Every start is a fresh, empty ledger.

@@ -1,5 +1,13 @@
 # DevNet Deployment Checklist
 
+> **Status (Oct 1, 2026):** the code side is ready for Canton 3.x. The model
+> builds on SDK 3.5.12 (Daml-LF 2.x), and the app talks to the JSON Ledger
+> API v2; all tests and the full live scenario pass on a 3.5 sandbox. What's
+> left is the access itself: DevNet onboarding from HackCanton, the
+> participant's real authentication in place of the local no-auth mode
+> (`noAuth` in `ui/config.js`), and optionally a wallet connection through
+> the Canton dApp SDK (CIP-103).
+
 Real Canton DevNet access is gated behind the hackathon's own onboarding,
 not something to self-provision. The public path (get sponsored by a Super
 Validator, submit a static egress IP, wait 2 to 7 days for whitelisting) is

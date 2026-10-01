@@ -9,6 +9,9 @@ installing anything.
 - It starts with the four demo parties and an empty agreement.
 - It is shared by everyone who opens it, and resets to a clean start every
   `RESET_HOURS` (default 6). The app shows a "Public demo ledger" notice.
+- It runs **Canton 3.x** (SDK 3.5, JSON Ledger API v2), the same stack as DevNet. The
+  image installs the SDK with Digital Asset's Linux installer; the first remote build is
+  the first time it's built in a container, so check its log.
 - It needs about **2 GB of memory** (the Canton sandbox and the JSON API
   are two JVMs), so free tiers with 512 MB are not enough.
 

@@ -15,7 +15,7 @@ while true; do
   echo "Resetting the demo ledger"
   # Make sure no JVM from the previous run still holds the ports.
   for p in /proc/[0-9]*; do
-    if grep -q java "$p/cmdline" 2>/dev/null; then kill "${p#/proc/}" 2>/dev/null || true; fi
+    if grep -qE "java|serve-ui" "$p/cmdline" 2>/dev/null; then kill "${p#/proc/}" 2>/dev/null || true; fi
   done
   sleep 5
 done

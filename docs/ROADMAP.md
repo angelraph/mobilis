@@ -29,7 +29,8 @@ The rulebook MVP, working end to end on a local Canton sandbox:
 
 **Goal:** the same workflow across real, separate participant nodes.
 
-- Port to Canton 3.x and the JSON Ledger API v2.
+- Done (Oct 1): ported to Canton 3.x, SDK 3.5.12 and the JSON Ledger API v2.
+  All 20 tests, the parity cases and the full live scenario pass on 3.5.
 - Replace the local-dev token minting with real authentication (OAuth2 via
   the participant's identity provider).
 - Four parties on DevNet, one agreement, one full margin cycle. Measure
