@@ -33,7 +33,7 @@ the process day to day and are more likely to reply.
 > Could I ask you 5 questions in a 15-minute call, any time before
 > [date]? Happy to share what I learn from the other conversations too.
 >
-> 3-minute narrated demo if useful: https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.mp4
+> Have a look if useful (a 3-minute demo is on the site): https://mobilis-angelraphs-projects.vercel.app
 
 ## Follow-up (3 days later, once)
 

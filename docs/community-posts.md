@@ -7,6 +7,8 @@ Official HackCanton / AppsFactory channels (from the hackathon dashboard):
 - X: https://x.com/appsfactory_cc
 - YouTube: https://www.youtube.com/@NODERSLLC
 
+Where to post what: the DevNet request goes in the HackCanton Discord (main) and the HackCanton Telegram. The interview request goes in both of those plus the Canton Network Discord and LinkedIn. The X post tags @appsfactory_cc and @cantonnetwork.
+
 ---
 
 ## 1. DevNet access request (Discord / Telegram)
@@ -16,7 +18,7 @@ Official HackCanton / AppsFactory channels (from the hackathon dashboard):
 > I'm building **Mobilis** for Season 3 (RWA & Business Workflows track): a collateral mobility engine on Canton. A pledgor, a secured party and a custodian move collateral against a live margin call in one atomic transaction, and the ledger itself enforces eligibility, haircuts, coverage, concentration limits and custodian price marks. The regulator gets an audit report and never sees anyone's book.
 >
 > It runs end to end on a local Canton sandbox today: 20 Daml tests, 16 rulebook cases checked on both ledger and UI, and a narrated demo.
-> 🎥 Demo: https://mobilis-angelraphs-projects.vercel.app/demo.html
+> 🌐 See it: https://mobilis-angelraphs-projects.vercel.app
 > 💻 Code: https://github.com/angelraph/mobilis
 >
 > **I'd like DevNet access to deploy it across real participant nodes.** Could you tell me:
@@ -39,7 +41,7 @@ Official HackCanton / AppsFactory channels (from the hackathon dashboard):
 > - how long it takes, and where it gets stuck
 > - how eligibility, haircuts and regulator reporting are handled
 >
-> 2-minute look at what I've built: https://mobilis-angelraphs-projects.vercel.app/demo.html
+> Have a look at what I've built (there's a 3-minute demo on the site): https://mobilis-angelraphs-projects.vercel.app
 >
 > If that's you, or you can introduce me to someone, please DM me. Mentors with a securities-finance background, I'd especially value your view. Thank you!
 
@@ -61,7 +63,7 @@ Tags: `@appsfactory_cc` (the hackathon, from its dashboard) and `@cantonnetwork`
 > 👁️ Four parties, four views of one transaction. The regulator gets a report and never sees anyone's book
 >
 > ✅ 20 Daml tests, plus 16 rulebook cases checked on both the ledger and the UI
-> 🎥 Demo: https://mobilis-angelraphs-projects.vercel.app/demo.html
+> 🌐 Explore it: https://mobilis-angelraphs-projects.vercel.app
 > 💻 Code: https://github.com/angelraph/mobilis
 >
 > Next step: DevNet. @appsfactory_cc, I'd love access to deploy Mobilis across real participant nodes 🙏
@@ -83,7 +85,7 @@ Tags: `@appsfactory_cc` (the hackathon, from its dashboard) and `@cantonnetwork`
 > **5/** Privacy by construction: four parties, four views of one transaction. The regulator gets an audit report and its node never receives anyone's book.
 
 > **6/** ✅ 20 Daml tests + 16 rulebook cases checked on ledger and UI
-> 🎥 https://mobilis-angelraphs-projects.vercel.app/demo.html
+> 🌐 https://mobilis-angelraphs-projects.vercel.app
 > 💻 https://github.com/angelraph/mobilis
 
 > **7/** Next: DevNet. @appsfactory_cc, I'd love access to deploy across real participant nodes 🙏
