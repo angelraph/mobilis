@@ -25,10 +25,10 @@ mkAsset assetType faceValue = PostedAsset with assetType, faceValue, postedValue
 -- `daml script --script-name Setup:demoStart` (see scripts/demo-ledger.sh).
 demoStart : Script ()
 demoStart = script do
-  pledgor <- allocatePartyWithHint "Pledgor" (PartyIdHint "Pledgor")
-  securedParty <- allocatePartyWithHint "SecuredParty" (PartyIdHint "SecuredParty")
-  custodian <- allocatePartyWithHint "Custodian" (PartyIdHint "Custodian")
-  regulator <- allocatePartyWithHint "Regulator" (PartyIdHint "Regulator")
+  pledgor <- allocatePartyByHint (PartyIdHint "Pledgor")
+  securedParty <- allocatePartyByHint (PartyIdHint "SecuredParty")
+  custodian <- allocatePartyByHint (PartyIdHint "Custodian")
+  regulator <- allocatePartyByHint (PartyIdHint "Regulator")
   agreementCid <- submitMulti [pledgor, securedParty] [] do
     createCmd CollateralAgreement with
       pledgor
@@ -51,10 +51,10 @@ demoStart = script do
 -- controllers, regulator visibility) are asserted in Tests.daml.
 setup : Script ()
 setup = script do
-  pledgor <- allocatePartyWithHint "Pledgor" (PartyIdHint "Pledgor")
-  securedParty <- allocatePartyWithHint "SecuredParty" (PartyIdHint "SecuredParty")
-  custodian <- allocatePartyWithHint "Custodian" (PartyIdHint "Custodian")
-  regulator <- allocatePartyWithHint "Regulator" (PartyIdHint "Regulator")
+  pledgor <- allocatePartyByHint (PartyIdHint "Pledgor")
+  securedParty <- allocatePartyByHint (PartyIdHint "SecuredParty")
+  custodian <- allocatePartyByHint (PartyIdHint "Custodian")
+  regulator <- allocatePartyByHint (PartyIdHint "Regulator")
 
   agreementCid <- submitMulti [pledgor, securedParty] [] do
     createCmd CollateralAgreement with

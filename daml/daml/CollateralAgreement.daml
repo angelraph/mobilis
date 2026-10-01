@@ -153,7 +153,7 @@ template CollateralAgreementState
     -- current schedule and the agreement's eligibility terms. This is the
     -- only path by which information about this agreement ever reaches the
     -- regulator, and it is a reduced summary, not the raw schedule.
-    -- | narrativeOverride lets the custodian's own tooling (e.g. an
+    -- narrativeOverride lets the custodian's own tooling (e.g. an
     -- LLM-drafted summary, reviewed by a person before it's committed) supply
     -- the plain-English narrative instead of the deterministic default below.
     -- Every number in the report (totals, coverage, positions, breaches) is
@@ -168,8 +168,8 @@ template CollateralAgreementState
         narrativeOverride : Optional Text
       controller custodian
       do
-        agreement <- fetch agreementCid
-        assertMsg "Report must be generated for this agreement" (agreement.agreementId == agreementId)
+        agr <- fetch agreementCid
+        assertMsg "Report must be generated for this agreement" (agr.agreementId == agreementId)
         let total = V.totalPosted schedule
             ratio = V.coverageRatio requiredCollateral schedule
             eligBreaches = V.eligibilityBreaches eligibilityCriteria schedule

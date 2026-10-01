@@ -1,0 +1,5 @@
+.daml/
+*.dar
+sandbox.log
+canton-*.log
+log/

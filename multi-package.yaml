@@ -1,0 +1,5 @@
+# Canton 3.x: the deployable contracts (daml/) are kept free of Daml Script;
+# setup scenarios and tests live in their own package (daml-test/).
+packages:
+  - ./daml
+  - ./daml-test
