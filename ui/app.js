@@ -133,6 +133,9 @@ async function apiGet(path, token) {
 // ---- JSON Ledger API v2 (Canton 3.x) ----
 
 async function v2(method, path, body) {
+  // Connected through a Canton wallet: every ledger read goes through the
+  // wallet's authenticated session, to whatever network the wallet is on.
+  if (state.wallet) return walletLedgerApi(method, path, body);
   const res = await fetch(`${CFG.jsonApiBase}${path}`, {
     method,
     headers: { "Content-Type": "application/json", ...(state.token && !CFG.noAuth ? { Authorization: `Bearer ${state.token}` } : {}) },
@@ -161,6 +164,13 @@ async function v2Query(templateIds) {
 }
 
 async function v2Exercise(templateId, contractId, choice, choiceArgument) {
+  const command = { ExerciseCommand: { templateId, contractId, choice, choiceArgument } };
+  if (state.wallet) {
+    // The wallet prepares the transaction, the user approves and signs it
+    // there, and the wallet submits it.
+    const sdk = await loadWalletSdk();
+    return sdk.prepareExecute({ commands: [command], actAs: [state.partyId] });
+  }
   return v2("POST", "/v2/commands/submit-and-wait-for-transaction", {
     commands: {
       commandId: crypto.randomUUID(),
@@ -169,6 +179,89 @@ async function v2Exercise(templateId, contractId, choice, choiceArgument) {
       commands: [{ ExerciseCommand: { templateId, contractId, choice, choiceArgument } }],
     },
   });
+}
+
+// ---- Canton wallet (dApp SDK, CIP-103) ----
+//
+// "Connect wallet" lets a user act as their own Canton party, held in their
+// wallet (browser extension, remote wallet or WalletConnect), instead of
+// picking one of the four demo roles. Reads go through the wallet session
+// and every action is approved and signed in the wallet. The SDK is loaded
+// only when needed, so the demo and the static preview don't depend on it.
+
+const DAPP_SDK_URL = "https://esm.sh/@canton-network/dapp-sdk@1.7.1";
+const WALLET_FLAG = "mobilis-wallet";
+let walletSdk = null;
+
+async function loadWalletSdk() {
+  if (!walletSdk) {
+    const sdk = await import(DAPP_SDK_URL);
+    await sdk.init();
+    walletSdk = sdk;
+  }
+  return walletSdk;
+}
+
+async function walletLedgerApi(method, path, body) {
+  const sdk = await loadWalletSdk();
+  const result = await sdk.ledgerApi({ requestMethod: method.toLowerCase(), resource: path, ...(body === undefined ? {} : { body }) });
+  const json = result && typeof result.response === "string" ? JSON.parse(result.response) : result;
+  if (json && json.code && json.cause) throw new Error(friendlyError(json.cause));
+  return json;
+}
+
+// Which role does this party play? Look for a Mobilis agreement naming it,
+// or (for a regulator, who sees no agreement) an audit report addressed to it.
+async function roleForParty(partyId) {
+  const agreements = await v2Query([TEMPLATE.Agreement]);
+  for (const a of agreements) {
+    if (a.payload.pledgor === partyId) return "Pledgor";
+    if (a.payload.securedParty === partyId) return "SecuredParty";
+    if (a.payload.custodian === partyId) return "Custodian";
+  }
+  const reports = await v2Query([TEMPLATE.AuditReport]);
+  if (reports.some((r) => r.payload.regulator === partyId)) return "Regulator";
+  return null;
+}
+
+async function connectWallet() {
+  state.walletBusy = true;
+  state.error = null;
+  render();
+  try {
+    const sdk = await loadWalletSdk();
+    // Closing the picker window doesn't settle connect(), so the button
+    // offers Cancel while it waits.
+    const cancelled = new Promise((_, reject) => {
+      state.cancelWallet = () => reject(new Error("Connection cancelled."));
+    });
+    const result = await Promise.race([sdk.connect(), cancelled]);
+    if (!result || !result.isConnected) throw new Error("The wallet connection was cancelled.");
+    const account = await sdk.getPrimaryAccount();
+    const network = await sdk.getActiveNetwork().catch(() => null);
+    state.wallet = { partyId: account.partyId, network: network && (network.networkId || network.id) };
+    state.partyId = account.partyId;
+    state.token = "wallet";
+    state.mock = false;
+    try { localStorage.setItem(WALLET_FLAG, "1"); } catch (e) { /* storage blocked */ }
+    state.role = (await roleForParty(account.partyId)) || "Wallet";
+    startPolling();
+    await refresh(true);
+  } catch (e) {
+    state.wallet = null;
+    state.errorKind = "info";
+    state.error = `Wallet: ${e.message}`;
+  } finally {
+    state.walletBusy = false;
+    state.cancelWallet = null;
+    render();
+  }
+}
+
+async function disconnectWallet() {
+  try { await (await loadWalletSdk()).disconnect(); } catch (e) { /* already gone */ }
+  try { localStorage.removeItem(WALLET_FLAG); } catch (e) { /* storage blocked */ }
+  location.reload();
 }
 
 async function queryAll(token, templateIds) {
@@ -217,6 +310,8 @@ const state = {
   aiBusy: false,
   draftNarrative: null, // the custodian's in-progress report narrative; reset to null after each successful report
   refreshLabel: "Refresh", // the Refresh button shows progress and confirms it ran
+  wallet: null, // { partyId, network } when connected through a Canton wallet
+  walletBusy: false,
   errorKind: "ledger", // "ledger" = the ledger refused an action; "info" = anything else
   lastCoverage: null, // coverage ratio at the previous render, so the gauge animates from it
   seenStatus: {}, // contractId -> last rendered status, to flash rows that just changed
@@ -641,7 +736,20 @@ function renderRoleSwitcher() {
       el("span", { text: "Mobilis" }),
     ]),
     el("a", { class: "nav-link", href: "demo-wall.html", text: "Four views" }),
-    el(
+    state.wallet
+      ? el("span", { class: "wallet-chip", title: state.wallet.partyId }, [
+          el("span", { class: "wallet-dot" }),
+          document.createTextNode(`${state.wallet.partyId.split("::")[0]}${state.wallet.network ? ` · ${state.wallet.network}` : ""}`),
+          el("button", { class: "wallet-off", text: "Disconnect", onclick: () => disconnectWallet() }),
+        ])
+      : el("button", {
+          class: "wallet-btn",
+          text: state.walletBusy ? "Cancel connecting" : "Connect wallet",
+          onclick: () => (state.walletBusy ? state.cancelWallet && state.cancelWallet() : connectWallet()),
+        }),
+    state.wallet
+      ? null
+      : el(
       "select",
       {
         class: "role-select",
@@ -1342,6 +1450,20 @@ function renderBody() {
 
   app.appendChild(renderVisibilityNote());
 
+  if (state.role === "Wallet") {
+    app.appendChild(
+      card("Your Canton wallet", [
+        el("p", { text: `Connected as ${state.wallet.partyId}${state.wallet.network ? ` on ${state.wallet.network}` : ""}.` }),
+        el("p", {
+          class: "hint",
+          text: "This party isn't part of a Mobilis collateral agreement on this network yet. When a custodian opens an agreement naming your party as pledgor, secured party or custodian (or sends you a regulator report), it appears here, and every action you take is approved and signed in your wallet.",
+        }),
+        el("p", { class: "hint", text: "To explore the full workflow now, disconnect and pick a demo role, or open the four-view wall." }),
+      ])
+    );
+    return;
+  }
+
   if (state.role === "Regulator") {
     app.appendChild(renderReports());
     return;
@@ -1433,14 +1555,28 @@ async function boot() {
   } else {
     render();
   }
-  if (!state.mock) {
-    setInterval(() => {
-      // Don't let a background poll silently wipe an error a user action just
-      // surfaced (e.g. a rejected ineligible substitution) before they've had
-      // a chance to read it. The explicit Refresh button still always clears it.
-      if (state.role && !state.busy && !state.error) refresh();
-    }, 4000);
+  if (!state.mock) startPolling();
+  // A returning wallet user: restore the session silently (no picker).
+  let returning = false;
+  try { returning = localStorage.getItem(WALLET_FLAG) === "1"; } catch (e) { /* storage blocked */ }
+  if (returning && !params.get("role")) {
+    try {
+      const sdk = await loadWalletSdk();
+      const { isConnected } = await sdk.isConnected();
+      if (isConnected) await connectWallet();
+    } catch (e) { /* stay in demo mode */ }
   }
+}
+
+let pollTimer = null;
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    // Don't let a background poll silently wipe an error a user action just
+    // surfaced (e.g. a rejected ineligible substitution) before they've had
+    // a chance to read it. The explicit Refresh button still always clears it.
+    if (state.role && !state.busy && !state.error) refresh();
+  }, 4000);
 }
 
 boot();

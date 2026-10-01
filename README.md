@@ -67,6 +67,7 @@ enforces the whole rulebook on the ledger:
 | What if prices move? | The custodian marks prices to market (`State_MarkPrices`) and the whole book re-values in the same transaction; a drop that leaves it short blocks every release until a top-up | `State_MarkPrices`, `Valuation.valueAssetAt` |
 | I'm short, or over-covered: what now? | Proposes the cheapest top-up that restores coverage, or the lots that can go back without leaving the book short, one click each | `ui/rules.js` `suggestTopUps`, `suggestReturns` |
 | What does the regulator see? | Coverage ratio, required collateral, share of book per asset type, eligibility and concentration breaches, and which price marks the figures use, still as a summary only | `AuditReport` |
+| Can I use my own Canton party? | **Connect wallet** (Canton dApp SDK, CIP-103): the app acts as the wallet's party, reads through the wallet session, and every action is approved and signed in the wallet | `ui/app.js` `connectWallet` |
 | Can the browser's preview be trusted? | 16 shared rulebook cases are run against both the ledger's Daml rulebook and the browser's JavaScript copy; both must agree | `ui/parity-cases.json`, `ParityCases.daml`, `ui/rules.test.js` |
 
 `dpm test` (in `daml-test/`) runs 20 Daml Script tests (`daml-test/daml/Tests.daml`), most of
