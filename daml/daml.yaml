@@ -1,9 +1,7 @@
-sdk-version: 2.10.6
+sdk-version: 3.5.12
 name: mobilis
 source: daml
 version: 0.1.0
-init-script: Setup:setup
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script

@@ -281,7 +281,7 @@ ROADMAP = page_hero(
   <div class="wrap">
     <ol class="timeline reveal">
       <li class="done"><span class="when">Oct 2026 · Built</span><h3>The rulebook MVP</h3><p>On-ledger valuation with custodian price marks, coverage, concentration limits and settlement re-checks, a margin-call lifecycle, returns, the collateral optimiser with top-up and return suggestions, the regulator report, 20 ledger tests and 16 shared parity cases.</p></li>
-      <li><span class="when">Q4 2026</span><h3>DevNet</h3><p>Move to Canton 3.x and the JSON Ledger API v2, real authentication, one agreement running across separate participant nodes.</p></li>
+      <li><span class="when">Q4 2026</span><h3>DevNet</h3><p>Done: the move to Canton 3.x and the JSON Ledger API v2 (all tests and the full live scenario pass on 3.5). Next: real authentication and a wallet connection, and one agreement running across separate participant nodes.</p></li>
       <li><span class="when">Q1 2027</span><h3>Design-partner pilot</h3><p>One custodian and one of its pledgor clients. A market-data feed behind the custodian's price marks, tokenised holdings via the Canton token standard, cycle time measured against today's process.</p></li>
       <li><span class="when">Q2 2027</span><h3>Portfolio scale</h3><p>Many agreements per custodian, netting across agreements, intraday margin, and portfolio-level optimisation.</p></li>
       <li><span class="when">H2 2027</span><h3>Production</h3><p>MainNet, Featured App status, and more custodians and triparty agents.</p></li>
@@ -300,7 +300,7 @@ FAQ = page_hero(
   <div class="wrap narrow">
     <div class="faq">
       <details><summary>What is collateral, and what is "mobility"?</summary><p>When one institution lends to another, the borrower pledges assets (bonds, cash) as security. Values change daily, so the lender calls for more (a margin call), and the borrower often wants an asset back and offers a replacement (a substitution). Mobility means moving that collateral quickly and safely. Today it runs on spreadsheets and email.</p></details>
-      <details><summary>Is this really running on Canton?</summary><p>Yes. The rules are Daml smart contracts, and the demo video was recorded from a Canton sandbox through the real UI over the JSON API. The public preview uses sample data because a static host can't run a ledger. DevNet deployment is the next milestone.</p></details>
+      <details><summary>Is this really running on Canton?</summary><p>Yes. The rules are Daml smart contracts on Canton 3.x (SDK 3.5, the same stack as DevNet), and the demo video was recorded from a Canton sandbox through the real UI over the JSON Ledger API. The public preview uses sample data because a static host can't run a ledger. DevNet deployment is the next milestone.</p></details>
       <details><summary>What does the AI actually do? Can it move assets?</summary><p>No, it can't move anything. The optimiser lists every swap the agreement's rules allow and scores each one by funding cost. The AI picks one of those and explains the choice. A person proposes it, the counterparty agrees and the custodian settles, and the ledger re-checks it at each step. With no AI available, the best-scoring valid move is used.</p></details>
       <details><summary>How can the regulator see a report but not the book?</summary><p>Canton only sends a party the contracts it is a stakeholder on. The regulator is an observer on the audit report contract and nothing else, so its node never receives the agreement, the schedule or the calls. The tests query the ledger as the regulator and assert zero.</p></details>
       <details><summary>What happens when prices fall?</summary><p>The custodian, as valuation agent, marks prices to market on the ledger, and every posted lot is re-valued in the same transaction. If that leaves the book short, the ledger refuses any return or swap that releases value, a margin call can't be marked fulfilled, and the pledgor's screen proposes the cheapest top-up that restores full coverage. The regulator's next report states which marks its figures use.</p></details>
@@ -334,11 +334,12 @@ RUN = page_hero(
     <ol class="steps">
       <li>
         <h3>Install the prerequisites (once)</h3>
-        <p><b>Git</b> (<a href="https://git-scm.com">git-scm.com</a>; on Windows this also gives you <b>Git Bash</b>, which you use for every command below), <b>Java 17</b> (<a href="https://adoptium.net">adoptium.net</a>) and the <b>Daml SDK 2.10.6</b>. On macOS or Linux:</p>
-        <div class="code"><pre><code>curl -sSL https://get.daml.com/ | sh -s 2.10.6</code></pre><button class="copy" type="button">Copy</button></div>
-        <p>On Windows, use the installer from <a href="https://docs.daml.com/getting-started/installation.html">docs.daml.com</a>. Then open a new terminal and check:</p>
+        <p><b>Git</b> (<a href="https://git-scm.com">git-scm.com</a>; on Windows this also gives you <b>Git Bash</b>, which you use for every command below), <b>Java 17+</b> (<a href="https://adoptium.net">adoptium.net</a>), <b>Node.js 18+</b> (<a href="https://nodejs.org">nodejs.org</a>) and the <b>Canton 3.x SDK</b> (<code>dpm</code>). On macOS or Linux:</p>
+        <div class="code"><pre><code>curl https://get.digitalasset.com/install/install.sh | sh</code></pre><button class="copy" type="button">Copy</button></div>
+        <p>On Windows, use the installer from <a href="https://get.digitalasset.com/install/latest-windows.html">get.digitalasset.com</a>. Then open a new terminal and check:</p>
         <div class="code"><pre><code>java -version
-daml version</code></pre><button class="copy" type="button">Copy</button></div>
+node --version
+dpm version</code></pre><button class="copy" type="button">Copy</button></div>
       </li>
       <li>
         <h3>Get the code</h3>
@@ -347,15 +348,16 @@ cd mobilis</code></pre><button class="copy" type="button">Copy</button></div>
       </li>
       <li>
         <h3>Run the tests <span class="opt-tag">optional</span></h3>
-        <div class="code"><pre><code>cd daml
-daml test
+        <div class="code"><pre><code>dpm build --all
+cd daml-test
+dpm test
 cd ..</code></pre><button class="copy" type="button">Copy</button></div>
-        <p>The setup scenario, all 20 tests and the parity check should finish with <code>ok</code>. For the browser side: <code>node --test ui/rules.test.js</code>.</p>
+        <p>The setup scenario, all 20 tests and the parity check should finish with <code>ok</code>, on Canton 3.x. For the browser side: <code>node --test ui/rules.test.js</code>.</p>
       </li>
       <li>
         <h3>Start the ledger</h3>
         <div class="code"><pre><code>sh scripts/demo-ledger.sh</code></pre><button class="copy" type="button">Copy</button></div>
-        <p>It builds the Daml model, starts a Canton sandbox, creates the four parties with an empty agreement, and serves the interface. Wait for <code>Demo ledger ready</code>. Keep that terminal open, and press Ctrl+C in it to stop.</p>
+        <p>It builds the Daml packages, starts a Canton 3.x sandbox with the JSON Ledger API v2, creates the four parties with an empty agreement, and serves the interface. Wait for <code>Demo ledger ready</code>. Keep that terminal open, and press Ctrl+C in it to stop.</p>
       </li>
       <li>
         <h3>Open the interface</h3>
@@ -380,7 +382,7 @@ cd ..</code></pre><button class="copy" type="button">Copy</button></div>
       <ul>
         <li>The AI features are optional. Without an API key, the optimiser uses its rules engine and everything still works. To turn the AI on: <code>cd proxy</code>, put <code>OPENAI_API_KEY=…</code> in <code>.env</code>, then run <code>node server.js</code>.</li>
         <li>The first click after a fresh start can take up to 30 seconds while the ledger warms up.</li>
-        <li><code>daml: command not found</code>? Open a new terminal. On Windows, use Git Bash.</li>
+        <li><code>dpm: command not found</code>? Open a new terminal. On Windows, use Git Bash.</li>
         <li>Every start is a fresh, empty ledger. The full guide is in <a href="https://github.com/angelraph/mobilis/blob/master/docs/RUN-LOCALLY.md">docs/RUN-LOCALLY.md</a>.</li>
       </ul>
     </div>

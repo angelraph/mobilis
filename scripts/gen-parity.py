@@ -11,7 +11,7 @@ import os
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 SRC = os.path.join(ROOT, "ui", "parity-cases.json")
-OUT = os.path.join(ROOT, "daml", "daml", "ParityCases.daml")
+OUT = os.path.join(ROOT, "daml-test", "daml", "ParityCases.daml")
 
 # Which words in the ledger's rejection message identify each rule.
 RULE_TEXT = {

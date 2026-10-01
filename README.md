@@ -10,7 +10,8 @@ Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) · FAQ: [docs/FAQ.md](docs/FAQ.md)
 
 ## Quick start: run it on a real Canton ledger
 
-Needs Git, Java 17 and the Daml SDK 2.10.6 (on Windows, use Git Bash).
+Runs on **Canton 3.x** (SDK 3.5, Daml-LF 2.x, JSON Ledger API v2). Needs Git,
+Java 17+, Node 18+ and the Canton 3.x SDK, `dpm` (on Windows, use Git Bash).
 Full step-by-step guide: [docs/RUN-LOCALLY.md](docs/RUN-LOCALLY.md), also at
 [mobilis-angelraphs-projects.vercel.app/run-locally.html](https://mobilis-angelraphs-projects.vercel.app/run-locally.html).
 
@@ -68,7 +69,7 @@ enforces the whole rulebook on the ledger:
 | What does the regulator see? | Coverage ratio, required collateral, share of book per asset type, eligibility and concentration breaches, and which price marks the figures use, still as a summary only | `AuditReport` |
 | Can the browser's preview be trusted? | 16 shared rulebook cases are run against both the ledger's Daml rulebook and the browser's JavaScript copy; both must agree | `ui/parity-cases.json`, `ParityCases.daml`, `ui/rules.test.js` |
 
-`daml test` runs 20 Daml Script tests (`daml/daml/Tests.daml`), most of
+`dpm test` (in `daml-test/`) runs 20 Daml Script tests (`daml-test/daml/Tests.daml`), most of
 them negative paths: an ineligible asset, an undercollateralising
 substitution or return, a concentration breach, releasing an asset that
 isn't posted, a margin call applied twice or marked fulfilled while short,
@@ -183,12 +184,9 @@ daml/               the Daml model
                                and checkMove, the one check every movement passes
     CollateralAgreement.daml  CollateralAgreement, CollateralAgreementState, MarginCall, CollateralCall
     AuditReport.daml          the regulator-facing summary contract
-    Setup.daml                a Daml Script that runs one full margin cycle and
-                               proves the privacy model by querying the ledger
-                               as each party
-    Tests.daml                20 Daml Script tests, mostly negative paths
-    ParityCases.daml          generated: the shared rulebook cases, run on the ledger
-  daml.yaml
+  daml.yaml           SDK 3.5.12; the deployable contracts only (no Daml Script)
+daml-test/           Setup, Tests and the generated ParityCases (depends on daml/)
+multi-package.yaml   builds both with `dpm build --all`
 ui/                  the app, the four-view wall, and the marketing pages (Vercel root)
   index.html, app.js the role-switcher app
   demo-wall.html     all four roles on one screen
@@ -201,6 +199,7 @@ ui/                  the app, the four-view wall, and the marketing pages (Verce
 scripts/
   demo-ledger.sh       fresh local ledger + interface (see docs/RUN-LOCALLY.md)
   hosted-ledger.sh     the public demo ledger's runner (Dockerfile), resets on a schedule
+  serve-ui.js          serves ui/ and forwards /v2 ledger calls (Canton 3.x JSON API can't host files)
   generate-config.sh   regenerates ui/config.js after every 'daml build'
   gen-parity.py        turns ui/parity-cases.json into ParityCases.daml
   build-site.py        builds the marketing pages

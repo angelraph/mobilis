@@ -21,13 +21,17 @@ const DEV_TOKEN_SECRET = "mobilis-local-dev-only";
 // server-side and is never reachable from anywhere but this machine.
 const AI_PROXY_BASE = "http://localhost:8787";
 
-const MODULE = (name) => `${CFG.packageId}:CollateralAgreement:${name}`;
+// Canton 3.x (JSON Ledger API v2) addresses templates by package name, so
+// a rebuild never changes the IDs; Canton 2.x (v1) uses the package hash.
+const API_V2 = CFG.apiVersion === "v2";
+const PKG = API_V2 ? "#mobilis" : CFG.packageId;
+const MODULE = (name) => `${PKG}:CollateralAgreement:${name}`;
 const TEMPLATE = {
   Agreement: MODULE("CollateralAgreement"),
   AgreementState: MODULE("CollateralAgreementState"),
   MarginCall: MODULE("MarginCall"),
   Call: MODULE("CollateralCall"),
-  AuditReport: `${CFG.packageId}:AuditReport:AuditReport`,
+  AuditReport: `${PKG}:AuditReport:AuditReport`,
 };
 
 const ROLES = ["Pledgor", "SecuredParty", "Custodian", "Regulator"];
@@ -87,8 +91,13 @@ async function mintToken(actAs) {
 // string with the actual message buried inside `message = "..."`. Pull that
 // out so a live demo shows the one sentence that matters, not a stack trace.
 function friendlyError(raw) {
-  const match = raw.match(/message = "([^"]+)"/);
-  return match ? match[1] : raw;
+  const v1 = raw.match(/message = "([^"]+)"/);
+  if (v1) return v1[1];
+  // v2: "... GeneralError (error category 9): Rejected: <the rule's message>"
+  const v2 = raw.match(/\(error category \d+\): (.*)$/s);
+  if (v2) return v2[1].trim();
+  if (/requires authorizers/.test(raw)) return "Not authorised: this step has to be taken by another party.";
+  return raw;
 }
 
 async function api(path, token, body) {
@@ -121,15 +130,68 @@ async function apiGet(path, token) {
   return json.result;
 }
 
+// ---- JSON Ledger API v2 (Canton 3.x) ----
+
+async function v2(method, path, body) {
+  const res = await fetch(`${CFG.jsonApiBase}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(state.token && !CFG.noAuth ? { Authorization: `Bearer ${state.token}` } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(friendlyError((json && (json.cause || json.message)) || res.statusText));
+  return json;
+}
+
+// Active contracts of the given templates visible to the current party,
+// returned in the same { contractId, payload } shape the v1 query gave.
+async function v2Query(templateIds) {
+  const { offset } = await v2("GET", "/v2/state/ledger-end");
+  const cumulative = templateIds.map((templateId) => ({
+    identifierFilter: { TemplateFilter: { value: { templateId, includeCreatedEventBlob: false } } },
+  }));
+  const entries = await v2("POST", "/v2/state/active-contracts", {
+    activeAtOffset: offset,
+    eventFormat: { filtersByParty: { [state.partyId]: { cumulative } }, verbose: false },
+  });
+  return entries
+    .map((e) => e.contractEntry && e.contractEntry.JsActiveContract)
+    .filter(Boolean)
+    .map(({ createdEvent: c }) => ({ contractId: c.contractId, templateId: c.templateId, payload: c.createArgument }));
+}
+
+async function v2Exercise(templateId, contractId, choice, choiceArgument) {
+  return v2("POST", "/v2/commands/submit-and-wait-for-transaction", {
+    commands: {
+      commandId: crypto.randomUUID(),
+      userId: CFG.applicationId,
+      actAs: [state.partyId],
+      commands: [{ ExerciseCommand: { templateId, contractId, choice, choiceArgument } }],
+    },
+  });
+}
+
 async function queryAll(token, templateIds) {
+  if (API_V2) return v2Query(templateIds);
   return api("/v1/query", token, { templateIds });
 }
 
 async function exerciseChoice(token, templateId, contractId, choice, argument) {
+  if (API_V2) return v2Exercise(templateId, contractId, choice, argument);
   return api("/v1/exercise", token, { templateId, contractId, choice, argument });
 }
 
 async function fetchPartyDirectory() {
+  if (API_V2) {
+    // Canton 3.x has no display names; a party ID is "<hint>::<fingerprint>".
+    const { partyDetails } = await v2("GET", "/v2/parties");
+    const byRole = {};
+    for (const { party } of partyDetails) {
+      const hint = party.split("::")[0];
+      if (ROLES.includes(hint)) byRole[hint] = party;
+    }
+    return byRole;
+  }
   const bootstrapToken = await mintToken(["public"]);
   const parties = await apiGet("/v1/parties", bootstrapToken);
   const byRole = {};

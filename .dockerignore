@@ -9,3 +9,4 @@ ui/media/*.mp4
 ui/.vercel
 scripts/video
 docs
+daml-test/.daml

@@ -21,7 +21,10 @@ fi
 MANIFEST=$(unzip -p "$DAR" META-INF/MANIFEST.MF | tr -d '\r\n ')
 PACKAGE_ID=$(printf '%s' "$MANIFEST" | grep -oE 'Main-Dalf:mobilis-0\.1\.0-[0-9a-f]+' | head -1 | sed -E 's/.*-([0-9a-f]+)$/\1/')
 
-if [ -z "$PACKAGE_ID" ]; then
+# Canton 3.x addresses templates by package name (#mobilis), so the hash is
+# only needed for the 2.x JSON API.
+API_VERSION="${MOBILIS_API_VERSION:-v2}"
+if [ -z "$PACKAGE_ID" ] && [ "$API_VERSION" = "v1" ]; then
   echo "Could not extract a package ID from $DAR's manifest." >&2
   exit 1
 fi
@@ -31,7 +34,9 @@ cat > ui/config.js <<EOF
 // script after every 'daml build' instead.
 window.MOBILIS_CONFIG = {
   packageId: "$PACKAGE_ID",
-  jsonApiBase: "", // same-origin: the JSON API serves this UI as static content
+  jsonApiBase: "", // same-origin: scripts/serve-ui.js serves the UI and forwards /v2 to the ledger
+  apiVersion: "$API_VERSION", // "v2" = Canton 3.x JSON Ledger API
+  noAuth: ${MOBILIS_NO_AUTH:-true}, // the local sandbox runs without auth; DevNet will not
   ledgerId: "sandbox",
   applicationId: "mobilis-ui",
   hosted: ${MOBILIS_HOSTED:-false} // true on the public demo ledger (shared, resets on a schedule)
