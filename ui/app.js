@@ -250,7 +250,9 @@ async function connectWallet() {
   } catch (e) {
     state.wallet = null;
     state.errorKind = "info";
-    state.error = `Wallet: ${e.message}`;
+    state.error = /popup/i.test(e.message)
+      ? "Wallet: the browser blocked the wallet window. Allow pop-ups for this site, then click Connect wallet again."
+      : `Wallet: ${e.message}`;
   } finally {
     state.walletBusy = false;
     state.cancelWallet = null;
@@ -1380,6 +1382,14 @@ function renderReports() {
   return card("Audit reports", items);
 }
 
+function renderError() {
+  const ledger = state.errorKind === "ledger";
+  return el("div", { class: ledger ? "error" : "error info", role: "alert" }, [
+    el("span", { class: "error-title", text: ledger ? "Refused by the ledger" : "Notice" }),
+    document.createTextNode(state.error),
+  ]);
+}
+
 function renderVisibilityNote() {
   const counts = {
     agreement: state.data.agreement ? 1 : 0,
@@ -1419,6 +1429,9 @@ function renderBody() {
     );
   }
 
+  // Before the intro, so a wallet notice shows even with no role chosen.
+  if (state.error && !state.role) app.appendChild(renderError());
+
   if (!state.role) {
     app.appendChild(
       el("div", { class: "intro" }, [
@@ -1438,15 +1451,7 @@ function renderBody() {
     ])
   );
 
-  if (state.error) {
-    const ledger = state.errorKind === "ledger";
-    app.appendChild(
-      el("div", { class: ledger ? "error" : "error info", role: "alert" }, [
-        el("span", { class: "error-title", text: ledger ? "Refused by the ledger" : "Notice" }),
-        document.createTextNode(state.error),
-      ])
-    );
-  }
+  if (state.error) app.appendChild(renderError());
 
   app.appendChild(renderVisibilityNote());
 
