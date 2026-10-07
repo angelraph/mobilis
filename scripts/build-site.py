@@ -196,7 +196,7 @@ HOW = page_hero(
       <div class="rule"><span class="rule-q">Prices moved?</span><p>The custodian marks prices to market and the ledger re-values the whole book at once. A drop that leaves the book short blocks every release until the pledgor tops up.</p></div>
       <div class="rule"><span class="rule-q">Preview honest?</span><p>The browser's copy of the rules is held to the ledger's answers by 16 shared test cases run on both sides.</p></div>
     </div>
-    <p class="fine">Each rule has a Daml Script test (20 in total) that proves it refuses what it should. See <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Valuation.daml">Valuation.daml</a> and <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Tests.daml">Tests.daml</a>.</p>
+    <p class="fine">Each rule has a Daml Script test (20 in total) that proves it refuses what it should. See <a href="https://github.com/angelraph/mobilis/blob/master/daml/daml/Valuation.daml">Valuation.daml</a> and <a href="https://github.com/angelraph/mobilis/blob/master/daml-test/daml/Tests.daml">Tests.daml</a>.</p>
   </div>
 </section>
 
