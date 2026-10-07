@@ -76,6 +76,43 @@ on one real agreement.
 - A second and third custodian or triparty agent.
 - Security review and operational runbooks for regulated clients.
 
+## Known risks we've identified
+
+These are our own assessment of what could stop a real ops team from
+adopting Mobilis. They are not interview findings. Each one has a planned
+answer.
+
+- **No hard cut-over.** A firm won't switch off its current process on day
+  one. Mobilis has to run in parallel and shadow mode first: read the same
+  movements, check them against the agreement, and flag differences, before
+  anything settles through it. (Q4 2026 to Q1 2027)
+- **Disputes and failed settlements.** Today the ledger refuses a bad move,
+  but it doesn't yet model a dispute (the parties disagree on a valuation or
+  a call) or a settlement that fails outside the ledger. Planned: a Dispute
+  contract with its own lifecycle (raised, evidence attached, resolved or
+  escalated), and a Failed state for settlements with a reason and a retry.
+  (Q1 2027)
+- **The legal terms behind the numbers.** Ops teams need to see which CSA or
+  GMRA terms drive each haircut, limit and threshold. Planned: a terms view
+  that shows the agreement's schedule, linked to the clause reference and
+  version for each rule. (Q1 2027)
+- **Plugging in custodians and triparty agents.** If every connection is a
+  custom build, adoption stalls. Planned: standard import and export of
+  settlement instructions and positions (ISO 20022 messages such as sese.023
+  and colr.*), plus a reconciliation feed, so existing tools keep working.
+  (Q1 to Q2 2027)
+- **A sparse screen.** The demo UI is built to explain the idea, not for an
+  ops desk that watches many agreements at once. Planned: a dense blotter
+  view with filters, pledged versus available by asset, and pending items
+  across agreements. (Q2 2027, with portfolio scale)
+- **Data residency and audit trail.** Legal and compliance must sign off
+  from day one. Canton helps here, because each firm runs its own node and
+  holds only its own data, and every ledger action is attributable. We still
+  need to document where data sits and how an audit export works. (Before
+  any pilot)
+- **Start small.** The pilot shape we'd propose: one asset class and one
+  counterparty relationship, run in parallel with the existing process.
+
 ## What stays true at every stage
 
 - The ledger is the authority. No UI, AI or integration can move

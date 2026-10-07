@@ -46,12 +46,22 @@
   <div class="wrap">
     <ol class="timeline reveal">
       <li class="done"><span class="when">Oct 2026 · Built</span><h3>The rulebook MVP</h3><p>On-ledger valuation with custodian price marks, coverage, concentration limits and settlement re-checks, a margin-call lifecycle, returns, the collateral optimiser with top-up and return suggestions, the regulator report, 20 ledger tests and 16 shared parity cases.</p></li>
-      <li><span class="when">Q4 2026</span><h3>DevNet</h3><p>Done: the move to Canton 3.x and the JSON Ledger API v2 (all tests and the full live scenario pass on 3.5). Next: real authentication and a wallet connection, and one agreement running across separate participant nodes.</p></li>
+      <li><span class="when">Q4 2026</span><h3>DevNet</h3><p>Done: the move to Canton 3.x and the JSON Ledger API v2 (all tests and the full live scenario pass on 3.5). Wallet connect through the Canton dApp SDK is in. Next: real authentication, a parallel-run (shadow) mode, and one agreement running across separate participant nodes.</p></li>
       <li><span class="when">Q1 2027</span><h3>Design-partner pilot</h3><p>One custodian and one of its pledgor clients. A market-data feed behind the custodian's price marks, tokenised holdings via the Canton token standard, cycle time measured against today's process.</p></li>
       <li><span class="when">Q2 2027</span><h3>Portfolio scale</h3><p>Many agreements per custodian, netting across agreements, intraday margin, and portfolio-level optimisation.</p></li>
       <li><span class="when">H2 2027</span><h3>Production</h3><p>MainNet, Featured App status, and more custodians and triparty agents.</p></li>
     </ol>
-    <p class="fine">A plan, not a promise. Dates after October 2026 depend on the pilot partner. Full detail in <a href="https://github.com/angelraph/mobilis/blob/master/docs/ROADMAP.md">docs/ROADMAP.md</a>.</p>
+    <h2 style="margin-top:72px">Known risks, and our answer to each</h2>
+    <p class="fine">Our own assessment of what could stop an ops team adopting Mobilis. These are not interview findings.</p>
+    <div class="faq">
+      <details><summary>No ops team will do a hard cut-over</summary><p>Mobilis runs in parallel first: it reads the same movements, checks them against the agreement and flags differences, before anything settles through it.</p></details>
+      <details><summary>Disputes and failed settlements</summary><p>Today the ledger refuses a bad move. Next comes a Dispute contract with its own lifecycle (raised, evidence attached, resolved or escalated), and a Failed state for settlements with a reason and a retry.</p></details>
+      <details><summary>The legal terms behind the numbers</summary><p>A terms view that links every haircut, limit and threshold to its CSA or GMRA clause and version.</p></details>
+      <details><summary>Plugging in custodians and triparty agents</summary><p>Standard ISO 20022 import and export of settlement instructions and positions, plus a reconciliation feed, so existing tools keep working without custom builds.</p></details>
+      <details><summary>A screen too sparse for an ops desk</summary><p>A dense blotter across agreements: pledged versus available by asset, pending items, and filters.</p></details>
+      <details><summary>Data residency and audit trail</summary><p>Each firm runs its own Canton node and holds only its own data, and every action is attributable. Before any pilot we document where data sits and how an audit export works.</p></details>
+    </div>
+    <p class="fine" style="margin-top:32px">Pilot shape: one asset class, one counterparty relationship, run in parallel with today's process. A plan, not a promise. Dates after October 2026 depend on the pilot partner. Full detail in <a href="https://github.com/angelraph/mobilis/blob/master/docs/ROADMAP.md">docs/ROADMAP.md</a>.</p>
   </div>
 </section>
 
