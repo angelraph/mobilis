@@ -17,6 +17,7 @@ NAV = [
     ("roadmap.html", "Roadmap"),
     ("faq.html", "FAQ"),
     ("run-locally.html", "Run locally"),
+    ("feedback.html", "Feedback"),
 ]
 
 
@@ -391,6 +392,49 @@ cd ..</code></pre><button class="copy" type="button">Copy</button></div>
 </section>
 """
 
+FEEDBACK = page_hero(
+    "Feedback",
+    "Tell me where this breaks.",
+    "If you work in collateral, margin, treasury or risk, or you build on Canton, three short answers help more than anything else right now. It takes about a minute.",
+) + """\n<section class="band">
+  <div class="wrap narrow">
+    <form class="fb" id="fb">
+      <label>Your role and type of firm <span>(no names needed)</span>
+        <input name="role" placeholder="e.g. margin ops at a custodian, Canton validator">
+      </label>
+      <label>Where does collateral handling break or slow down today?
+        <textarea name="pain" rows="3" required></textarea>
+      </label>
+      <label>After the <a href="demo.html">3-minute demo</a>: what's wrong or missing?
+        <textarea name="demo" rows="3"></textarea>
+      </label>
+      <label>Would you try a pilot on Canton DevNet? What would have to be true?
+        <textarea name="pilot" rows="2"></textarea>
+      </label>
+      <label class="fb-check"><input type="checkbox" name="quote"> You can quote me anonymously</label>
+      <button class="btn btn-primary" type="submit">Send feedback</button>
+      <p class="fine">Sending opens a pre-filled GitHub issue on the public repo, so you can review it before it's posted. Please don't include anything confidential.</p>
+    </form>
+  </div>
+</section>
+<script>
+document.getElementById("fb").addEventListener("submit", function (e) {
+  e.preventDefault();
+  var f = new FormData(this);
+  var body = [
+    "**Role / firm type:** " + (f.get("role") || "-"),
+    "**Where it breaks today:**", f.get("pain"),
+    "**What's wrong or missing in the demo:**", f.get("demo") || "-",
+    "**Would pilot on DevNet?**", f.get("pilot") || "-",
+    "**OK to quote anonymously:** " + (f.get("quote") ? "yes" : "no"),
+  ].join(String.fromCharCode(10, 10));
+  window.open("https://github.com/angelraph/mobilis/issues/new?title=" +
+    encodeURIComponent("Feedback: " + (f.get("role") || "practitioner")) +
+    "&body=" + encodeURIComponent(body), "_blank", "noopener");
+});
+</script>
+"""
+
 PAGES = [
     ("home.html", "Mobilis · collateral mobility on Canton", "Collateral that moves. Rules that hold. Mobilis moves collateral in one atomic Canton transaction, with every rule enforced by the ledger.", HOME),
     ("how-it-works.html", "How it works · Mobilis", "Propose, agree, settle: six collateral rules enforced by the Canton ledger, and an optimiser that works inside them.", HOW),
@@ -399,6 +443,7 @@ PAGES = [
     ("roadmap.html", "Roadmap · Mobilis", "From one agreement on DevNet to a custodian's whole book on Canton MainNet.", ROADMAP),
     ("run-locally.html", "Run locally · Mobilis", "Run a real Canton ledger with Mobilis on your own machine in a few steps.", RUN),
     ("faq.html", "FAQ · Mobilis", "Plain answers about Mobilis: the idea, the technology, the AI and the business.", FAQ),
+    ("feedback.html", "Feedback · Mobilis", "Three short questions for collateral, margin and Canton people: where it breaks, what's missing, and whether you'd pilot.", FEEDBACK),
 ]
 
 for file, title, desc, body in PAGES:

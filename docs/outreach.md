@@ -53,3 +53,21 @@ the process day to day and are more likely to reply.
 
 Use the 6-question script in [validation.md](validation.md). Ask before
 quoting anyone, even anonymously. Log each call the same day.
+
+## Short asks (Oct 7): point people at the feedback page
+
+The feedback page (https://mobilis-angelraphs-projects.vercel.app/feedback.html)
+takes about a minute, with no call needed. Log every real answer in
+docs/validation.md; never write one up that didn't happen.
+
+**HackCanton Discord / Telegram**
+
+> Hey all, I submitted Mobilis: collateral rules that live on Canton, so a swap that breaks the agreement just can't settle. If anyone here has worked in collateral, margin or treasury ops (or builds near repo on Canton), I'd love a one-minute reaction. There are three quick questions here: https://mobilis-angelraphs-projects.vercel.app/feedback.html. Honest "this wouldn't work because…" answers are the most useful.
+
+**DM to a mentor**
+
+> Hi [name], I'm the builder behind Mobilis in HackCanton S3. Would you have 3 minutes to watch the demo (https://mobilis-angelraphs-projects.vercel.app/demo.html) and tell me the one thing you'd change? Even a single sentence back helps me a lot.
+
+**LinkedIn (collateral / margin ops people)**
+
+> Hi [name], I'm building a small open-source tool on Canton that checks collateral swaps against the agreement before they settle. You clearly know this space far better than I do. Would you answer three quick questions? It takes about a minute: https://mobilis-angelraphs-projects.vercel.app/feedback.html. No pitch, I just want to learn where it breaks.

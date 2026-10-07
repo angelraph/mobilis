@@ -706,3 +706,17 @@ img.brand-mark { display: block; object-fit: cover; background: none; box-shadow
 
 /* Long commands and URLs wrap instead of pushing the page wider on phones. */
 .steps code, .note code, .faq code { overflow-wrap: anywhere; word-break: break-word; }
+
+/* Feedback form */
+.fb { display: grid; gap: 22px; }
+.fb label { display: block; font-weight: 500; }
+.fb label span { color: var(--faint); font-weight: 400; }
+.fb input:not([type=checkbox]), .fb textarea {
+  width: 100%; padding: 12px 14px; border-radius: 10px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); font: inherit; font-weight: 400;
+  display: block; margin-top: 8px;
+}
+.fb input:focus, .fb textarea:focus { outline: none; border-color: var(--cyan); }
+.fb .fb-check { display: flex; align-items: center; gap: 10px; font-weight: 400; color: var(--muted); }
+.fb button { justify-self: start; }
