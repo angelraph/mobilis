@@ -163,8 +163,7 @@ async function v2Query(templateIds) {
     .map(({ createdEvent: c }) => ({ contractId: c.contractId, templateId: c.templateId, payload: c.createArgument }));
 }
 
-async function v2Exercise(templateId, contractId, choice, choiceArgument) {
-  const command = { ExerciseCommand: { templateId, contractId, choice, choiceArgument } };
+async function v2Submit(command) {
   if (state.wallet) {
     // The wallet prepares the transaction, the user approves and signs it
     // there, and the wallet submits it.
@@ -176,9 +175,68 @@ async function v2Exercise(templateId, contractId, choice, choiceArgument) {
       commandId: crypto.randomUUID(),
       userId: CFG.applicationId,
       actAs: [state.partyId],
-      commands: [{ ExerciseCommand: { templateId, contractId, choice, choiceArgument } }],
+      commands: [command],
     },
   });
+}
+
+async function v2Exercise(templateId, contractId, choice, choiceArgument) {
+  return v2Submit({ ExerciseCommand: { templateId, contractId, choice, choiceArgument } });
+}
+
+// The same eligibility schedule as Setup.daml's demoCriteria.
+const TEST_CRITERIA = [
+  { assetType: "UST-BILL", haircut: "0.02", concentrationLimit: "1.0" },
+  { assetType: "IG-CORP-BOND", haircut: "0.05", concentrationLimit: "0.6" },
+  { assetType: "CASH-USD", haircut: "0.0", concentrationLimit: "1.0" },
+];
+
+// A solo test agreement for a connected wallet: its party takes every role,
+// so a single signature creates the agreement and opens its live state, and
+// the wallet user can then walk the whole cycle by switching roles. Every
+// rule is enforced exactly as in a real four-party agreement.
+async function startTestAgreement() {
+  const p = state.partyId;
+  await runAction(async () => {
+    try {
+      await v2Submit({
+        CreateAndExerciseCommand: {
+          templateId: TEMPLATE.Agreement,
+          createArguments: {
+            pledgor: p,
+            securedParty: p,
+            custodian: p,
+            regulator: p,
+            agreementId: `MOBILIS-TEST-${Date.now().toString(36).toUpperCase()}`,
+            eligibilityCriteria: TEST_CRITERIA,
+          },
+          choice: "CollateralAgreement_OpenState",
+          choiceArgument: {},
+        },
+      });
+    } catch (e) {
+      if (/PACKAGE|package|TEMPLATES_OR_INTERFACES_NOT_FOUND|not.*vetted/i.test(e.message)) {
+        throw new Error("Mobilis isn't installed on your wallet's network yet: its participant node needs the Mobilis package uploaded first. See docs/WALLET.md.");
+      }
+      throw e;
+    }
+    state.role = "Pledgor";
+  });
+}
+
+// The roles a wallet's party holds in the agreement it can see.
+function walletRoles() {
+  const a = state.data.agreement && state.data.agreement.payload;
+  const p = state.partyId;
+  const roles = [];
+  if (a) {
+    if (a.pledgor === p) roles.push("Pledgor");
+    if (a.securedParty === p) roles.push("SecuredParty");
+    if (a.custodian === p) roles.push("Custodian");
+    if (a.regulator === p) roles.push("Regulator");
+  }
+  if (!roles.includes("Regulator") && state.data.reports.some((r) => r.payload.regulator === p)) roles.push("Regulator");
+  return roles;
 }
 
 // ---- Canton wallet (dApp SDK, CIP-103) ----
@@ -750,7 +808,13 @@ function renderRoleSwitcher() {
           onclick: () => (state.walletBusy ? state.cancelWallet && state.cancelWallet() : connectWallet()),
         }),
     state.wallet
-      ? null
+      ? walletRoles().length > 1
+        ? el(
+            "select",
+            { class: "role-select", "aria-label": "Act as", onchange: (e) => { state.role = e.target.value; render(); refresh(true); } },
+            walletRoles().map((r) => el("option", { value: r, text: `Act as ${r}`, ...(r === state.role ? { selected: "selected" } : {}) }))
+          )
+        : null
       : el(
       "select",
       {
@@ -914,7 +978,10 @@ function renderCalls() {
   const calls = state.data.calls;
   if (!calls.length) return card("Collateral calls", [emptyState("No delivery, substitution, or return calls yet.")]);
   const rows = calls.map((c) => {
-    const isCounterparty = c.payload.proposer !== state.partyId && (state.role === "Pledgor" || state.role === "SecuredParty");
+    // In a solo test agreement one party is both sides, so whichever side
+    // the user is acting as may agree.
+    const solo = c.payload.pledgor === c.payload.securedParty;
+    const isCounterparty = (solo || c.payload.proposer !== state.partyId) && (state.role === "Pledgor" || state.role === "SecuredParty");
     const status = statusBadge(c.payload.status);
     const canAgree = status === "Outstanding" && isCounterparty;
     const canSettle = status === "Agreed" && state.role === "Custodian";
@@ -1248,7 +1315,12 @@ function renderOptimiser() {
 
 function renderCustodianTools() {
   if (state.role !== "Custodian") return null;
-  if (state.draftNarrative === null) state.draftNarrative = defaultNarrative();
+  // Keep the default narrative in step with the book (a margin call or a
+  // price drop changes it) until the custodian writes their own.
+  if (state.draftNarrative === null || state.draftNarrative === state.autoNarrative) {
+    state.autoNarrative = defaultNarrative();
+    state.draftNarrative = state.autoNarrative;
+  }
 
   const noteIn = el("input", { placeholder: "Note, e.g. End of Day 1", value: "End of Day 1" });
   const narrativeBox = el("textarea", {
@@ -1463,7 +1535,8 @@ function renderBody() {
           class: "hint",
           text: "This party isn't part of a Mobilis collateral agreement on this network yet. When a custodian opens an agreement naming your party as pledgor, secured party or custodian (or sends you a regulator report), it appears here, and every action you take is approved and signed in your wallet.",
         }),
-        el("p", { class: "hint", text: "To explore the full workflow now, disconnect and pick a demo role, or open the four-view wall." }),
+        el("p", { class: "hint", text: "Or start a test agreement now. Your party takes every role (pledgor, secured party, custodian and regulator), so you can walk the whole cycle yourself by switching roles. The ledger enforces every rule exactly as it would between four firms. One approval in your wallet." }),
+        el("button", { class: "action", text: state.busy ? "Starting…" : "Start a test agreement", onclick: () => startTestAgreement() }),
       ])
     );
     return;

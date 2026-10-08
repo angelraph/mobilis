@@ -87,10 +87,11 @@ answer.
   movements, check them against the agreement, and flag differences, before
   anything settles through it. (Q4 2026 to Q1 2027)
 - **Disputes and failed settlements.** Today the ledger refuses a bad move,
-  but it doesn't yet model a dispute (the parties disagree on a valuation or
-  a call) or a settlement that fails outside the ledger. Planned: a Dispute
-  contract with its own lifecycle (raised, evidence attached, resolved or
-  escalated), and a Failed state for settlements with a reason and a retry.
+  and a counterparty can dispute a proposed call with a reason. What's
+  missing is what happens next: resolving a dispute, and a settlement that
+  fails outside the ledger. Planned: a dispute lifecycle (raised, evidence
+  attached, resolved or escalated), and a Failed state for settlements with
+  a reason and a retry.
   (Q1 2027)
 - **The legal terms behind the numbers.** Ops teams need to see which CSA or
   GMRA terms drive each haircut, limit and threshold. Planned: a terms view
