@@ -515,6 +515,18 @@ table.kv, table.data {
 
 .form-row .grow { flex: 1 1 260px; }
 
+/* "Your agreement terms": asset name, then two labelled percentages. */
+.terms-row > input { flex: 2 1 160px; }
+.terms-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 130px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.terms-field input { width: 70px; flex: 1 1 60px; }
+
 .narrative-box {
   width: 100%;
   display: block;

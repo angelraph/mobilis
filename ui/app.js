@@ -163,18 +163,18 @@ async function v2Query(templateIds) {
     .map(({ createdEvent: c }) => ({ contractId: c.contractId, templateId: c.templateId, payload: c.createArgument }));
 }
 
-async function v2Submit(command) {
+async function v2Submit(command, actAs = [state.partyId]) {
   if (state.wallet) {
     // The wallet prepares the transaction, the user approves and signs it
     // there, and the wallet submits it.
     const sdk = await loadWalletSdk();
-    return sdk.prepareExecute({ commands: [command], actAs: [state.partyId] });
+    return sdk.prepareExecute({ commands: [command], actAs });
   }
   return v2("POST", "/v2/commands/submit-and-wait-for-transaction", {
     commands: {
       commandId: crypto.randomUUID(),
       userId: CFG.applicationId,
-      actAs: [state.partyId],
+      actAs,
       commands: [command],
     },
   });
@@ -184,44 +184,105 @@ async function v2Exercise(templateId, contractId, choice, choiceArgument) {
   return v2Submit({ ExerciseCommand: { templateId, contractId, choice, choiceArgument } });
 }
 
-// The same eligibility schedule as Setup.daml's demoCriteria.
-const TEST_CRITERIA = [
-  { assetType: "UST-BILL", haircut: "0.02", concentrationLimit: "1.0" },
-  { assetType: "IG-CORP-BOND", haircut: "0.05", concentrationLimit: "0.6" },
-  { assetType: "CASH-USD", haircut: "0.0", concentrationLimit: "1.0" },
+// The terms a new agreement starts from: the same eligibility schedule as
+// Setup.daml's demoCriteria, as percentages for the terms form.
+const DEFAULT_TERMS = [
+  { assetType: "UST-BILL", haircut: "2", limit: "100" },
+  { assetType: "IG-CORP-BOND", haircut: "5", limit: "60" },
+  { assetType: "CASH-USD", haircut: "0", limit: "100" },
 ];
 
-// A solo test agreement for a connected wallet: its party takes every role,
-// so a single signature creates the agreement and opens its live state, and
-// the wallet user can then walk the whole cycle by switching roles. Every
-// rule is enforced exactly as in a real four-party agreement.
-async function startTestAgreement() {
-  const p = state.partyId;
+// The terms form as the ledger expects it, or an error message. Mirrors
+// the `ensure` clause on CollateralAgreement so mistakes are explained
+// here instead of as a ledger rejection.
+function termsToCriteria(terms) {
+  const seen = new Set();
+  const criteria = [];
+  for (const t of terms) {
+    const assetType = t.assetType.trim().toUpperCase();
+    if (!assetType) return { error: "Every eligible asset needs a name." };
+    if (seen.has(assetType)) return { error: `${assetType} is listed twice.` };
+    seen.add(assetType);
+    const haircut = parseFloat(t.haircut);
+    const limit = parseFloat(t.limit);
+    if (!(haircut >= 0 && haircut < 100)) return { error: `${assetType}: the haircut must be at least 0% and below 100%.` };
+    if (!(limit > 0 && limit <= 100)) return { error: `${assetType}: the concentration limit must be above 0% and at most 100%.` };
+    criteria.push({ assetType, haircut: (haircut / 100).toFixed(6), concentrationLimit: (limit / 100).toFixed(6) });
+  }
+  if (!criteria.length) return { error: "Add at least one eligible asset." };
+  return { criteria };
+}
+
+// Creates an agreement with the terms from the form and opens its live
+// state, in one transaction. With a wallet, the wallet's party takes every
+// role (a solo test agreement: one signature, and every rule enforced
+// exactly as between four firms). On the local ledger it is made between
+// the four demo parties.
+async function startAgreement() {
+  const { criteria, error } = termsToCriteria(state.terms);
+  if (error) {
+    state.errorKind = "info";
+    state.error = error;
+    render();
+    return;
+  }
+  const solo = !!state.wallet;
+  const parties = solo
+    ? { pledgor: state.partyId, securedParty: state.partyId, custodian: state.partyId, regulator: state.partyId }
+    : { pledgor: state.parties.Pledgor, securedParty: state.parties.SecuredParty, custodian: state.parties.Custodian, regulator: state.parties.Regulator };
+  const agreementId = `MOBILIS-${solo ? "TEST" : "CA"}-${Date.now().toString(36).toUpperCase()}`;
   await runAction(async () => {
     try {
-      await v2Submit({
-        CreateAndExerciseCommand: {
-          templateId: TEMPLATE.Agreement,
-          createArguments: {
-            pledgor: p,
-            securedParty: p,
-            custodian: p,
-            regulator: p,
-            agreementId: `MOBILIS-TEST-${Date.now().toString(36).toUpperCase()}`,
-            eligibilityCriteria: TEST_CRITERIA,
+      await v2Submit(
+        {
+          CreateAndExerciseCommand: {
+            templateId: TEMPLATE.Agreement,
+            createArguments: { ...parties, agreementId, eligibilityCriteria: criteria },
+            choice: "CollateralAgreement_OpenState",
+            choiceArgument: {},
           },
-          choice: "CollateralAgreement_OpenState",
-          choiceArgument: {},
         },
-      });
+        solo ? [state.partyId] : [parties.pledgor, parties.securedParty, parties.custodian]
+      );
     } catch (e) {
       if (/PACKAGE|package|TEMPLATES_OR_INTERFACES_NOT_FOUND|not.*vetted/i.test(e.message)) {
         throw new Error("Mobilis isn't installed on your wallet's network yet: its participant node needs the Mobilis package uploaded first. See docs/WALLET.md.");
       }
       throw e;
     }
-    state.role = "Pledgor";
+    selectAgreement(agreementId);
+    if (solo) state.role = "Pledgor";
   });
+}
+
+function selectAgreement(agreementId) {
+  state.agreementId = agreementId;
+  try { localStorage.setItem("mobilis-agreement", agreementId); } catch (e) { /* storage blocked */ }
+}
+
+// The terms form: one row per eligible asset type, with its haircut and the
+// largest share of the book it may make up.
+function renderTermsEditor(intro, startLabel) {
+  const rows = state.terms.map((t, i) => {
+    const input = (key, attrs) =>
+      el("input", { ...attrs, value: t[key], oninput: (e) => { state.terms[i][key] = e.target.value; } });
+    return el("div", { class: "form-row terms-row" }, [
+      input("assetType", { placeholder: "Asset type, e.g. GILT", "aria-label": "Asset type" }),
+      el("label", { class: "terms-field" }, [document.createTextNode("Haircut %"), input("haircut", { inputmode: "decimal", "aria-label": "Haircut %" })]),
+      el("label", { class: "terms-field" }, [document.createTextNode("Max % of book"), input("limit", { inputmode: "decimal", "aria-label": "Max % of book" })]),
+      state.terms.length > 1
+        ? el("button", { class: "action secondary", text: "Remove", onclick: () => { state.terms.splice(i, 1); render(); } })
+        : null,
+    ]);
+  });
+  return card("Your agreement terms", [
+    el("p", { class: "hint", text: intro }),
+    ...rows,
+    el("div", { class: "form-row" }, [
+      el("button", { class: "action secondary", text: "Add an asset", onclick: () => { state.terms.push({ assetType: "", haircut: "0", limit: "100" }); render(); } }),
+      el("button", { class: "action", text: state.busy ? "Starting…" : startLabel, onclick: () => startAgreement() }),
+    ]),
+  ]);
 }
 
 // The roles a wallet's party holds in the agreement it can see.
@@ -371,6 +432,9 @@ const state = {
   draftNarrative: null, // the custodian's in-progress report narrative; reset to null after each successful report
   refreshLabel: "Refresh", // the Refresh button shows progress and confirms it ran
   wallet: null, // { partyId, network } when connected through a Canton wallet
+  agreementId: null, // the agreement on screen when the party can see more than one
+  agreementIds: [], // every agreement this party can see
+  terms: DEFAULT_TERMS.map((t) => ({ ...t })), // the "Your agreement terms" form
   walletBusy: false,
   errorKind: "ledger", // "ledger" = the ledger refused an action; "info" = anything else
   lastCoverage: null, // coverage ratio at the previous render, so the gauge animates from it
@@ -404,9 +468,24 @@ function rulesInput(extra) {
     prices: s.prices || [],
     required: s.requiredCollateral,
     schedule: s.schedule,
-    inventory: DEMO_INVENTORY,
+    inventory: inventory(),
     ...extra,
   };
+}
+
+// The pledgor's inventory for the optimiser. An agreement on custom terms
+// can accept asset types the demo inventory doesn't hold: those get a
+// sample position (off-ledger, like the rest of the inventory), and the
+// demo-only types it doesn't accept are left out rather than listed as
+// ruled out.
+function inventory() {
+  const held = new Set(DEMO_INVENTORY.map((i) => i.assetType));
+  const extra = criteria()
+    .filter((c) => !held.has(c.assetType))
+    .map((c) => ({ assetType: c.assetType, available: 2000000, costBps: 20 }));
+  if (!extra.length) return DEMO_INVENTORY;
+  const eligible = new Set(criteria().map((c) => c.assetType));
+  return [...DEMO_INVENTORY.filter((i) => eligible.has(i.assetType)), ...extra];
 }
 
 function totalPosted(schedule) {
@@ -498,12 +577,20 @@ async function refresh(force = false) {
       queryAll(state.token, [TEMPLATE.Call]),
       queryAll(state.token, [TEMPLATE.AuditReport]),
     ]);
+    // A party can see several agreements: show the selected one (or the
+    // first) and only the contracts that belong to it.
+    // The choice is shared across tabs, so the four-view wall follows it.
+    try { state.agreementId = localStorage.getItem("mobilis-agreement") || state.agreementId; } catch (e) { /* storage blocked */ }
+    const agreement = agreements.find((a) => a.payload.agreementId === state.agreementId) || agreements[0] || null;
+    const id = agreement ? agreement.payload.agreementId : state.agreementId;
+    const mine = (c) => !id || c.payload.agreementId === id;
+    state.agreementIds = [...new Set([...agreements, ...reports].map((c) => c.payload.agreementId))];
     const nextData = {
-      agreement: agreements[0] || null,
-      agreementState: states[0] || null,
-      marginCalls,
-      calls,
-      reports,
+      agreement,
+      agreementState: states.find(mine) || null,
+      marginCalls: marginCalls.filter(mine),
+      calls: calls.filter(mine),
+      reports: reports.filter(mine),
     };
     const unchanged = !state.error && JSON.stringify(nextData) === JSON.stringify(state.data);
     state.data = nextData;
@@ -828,6 +915,16 @@ function renderRoleSwitcher() {
         ),
       ]
     ),
+    state.agreementIds.length > 1
+      ? el(
+          "select",
+          { class: "role-select", "aria-label": "Agreement", onchange: (e) => { selectAgreement(e.target.value); refresh(true); } },
+          state.agreementIds.map((id) => {
+            const current = state.data.agreement ? state.data.agreement.payload.agreementId : state.agreementId;
+            return el("option", { value: id, text: id, ...(id === current ? { selected: "selected" } : {}) });
+          })
+        )
+      : null,
     el("button", { class: `refresh-btn${state.refreshLabel === "Refresh" ? "" : " is-active"}`, onclick: () => manualRefresh(), text: state.refreshLabel }),
   ]);
   return bar;
@@ -1053,7 +1150,7 @@ function renderProposeForm() {
     return out;
   };
 
-  const assetTypeIn = el("input", { placeholder: "Asset type, e.g. UST-BILL", value: "UST-BILL" });
+  const assetTypeIn = el("input", { placeholder: "Asset type, e.g. UST-BILL", value: eligibleTypes[0] || "UST-BILL" });
   const faceIn = el("input", { placeholder: "Face value", value: "1000000" });
   const outTypeIn = el("input", { placeholder: "Outgoing asset type", value: defaultOutType });
   const inTypeIn = el("input", { placeholder: "Incoming asset type", value: defaultInType });
@@ -1535,9 +1632,13 @@ function renderBody() {
           class: "hint",
           text: "This party isn't part of a Mobilis collateral agreement on this network yet. When a custodian opens an agreement naming your party as pledgor, secured party or custodian (or sends you a regulator report), it appears here, and every action you take is approved and signed in your wallet.",
         }),
-        el("p", { class: "hint", text: "Or start a test agreement now. Your party takes every role (pledgor, secured party, custodian and regulator), so you can walk the whole cycle yourself by switching roles. The ledger enforces every rule exactly as it would between four firms. One approval in your wallet." }),
-        el("button", { class: "action", text: state.busy ? "Starting…" : "Start a test agreement", onclick: () => startTestAgreement() }),
       ])
+    );
+    app.appendChild(
+      renderTermsEditor(
+        "Or start a test agreement now, on your own terms: list the assets your agreement accepts, the haircut on each, and the largest share of the book each may make up. Your party takes every role (pledgor, secured party, custodian and regulator), so you can walk the whole cycle yourself by switching roles, and the ledger enforces your terms exactly as it would between four firms. One approval in your wallet.",
+        "Start a test agreement"
+      )
     );
     return;
   }
@@ -1560,6 +1661,15 @@ function renderBody() {
   if (custodianTools) app.appendChild(custodianTools);
   const reports = renderReports();
   if (reports) app.appendChild(reports);
+  // Model a new agreement on your own terms, between the four demo parties.
+  if (state.role === "Custodian" && !state.wallet) {
+    app.appendChild(
+      renderTermsEditor(
+        "Try your own agreement: list the assets it accepts, the haircut on each, and the largest share of the book each may make up. This creates a new agreement between the four demo parties (on this local ledger the pledgor and secured party sign together), and every role switches to it. Then propose real moves and see which ones the ledger refuses.",
+        "Create agreement"
+      )
+    );
+  }
 }
 
 // Flash a row whose status changed (or that appeared) since the last render,

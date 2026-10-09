@@ -10,9 +10,11 @@ every action is approved and signed in your wallet.
 
 - **Connect and see your party.** Any CIP-103 wallet can connect. The app
   shows your party and network.
-- **Start a test agreement.** If your party isn't in a Mobilis agreement
-  yet, one click (and one approval in your wallet) creates a solo test
-  agreement. Your party takes every role: pledgor, secured party, custodian
+- **Start a test agreement, on your own terms.** If your party isn't in a
+  Mobilis agreement yet, you list the assets it accepts, the haircut on
+  each and the largest share of the book each may make up, and one click
+  (and one approval in your wallet) creates a solo test agreement on those
+  terms. Your party takes every role: pledgor, secured party, custodian
   and regulator. Then you switch roles with the "Act as" menu and walk the
   whole cycle yourself: deliver collateral, raise a margin call, top up,
   swap, mark prices down and produce the regulator report. The ledger

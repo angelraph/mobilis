@@ -54,11 +54,35 @@ or run it yourself on a real Canton ledger with one command.
 | Regulators either get a spreadsheet days later, or too much raw data. | The custodian issues an audit report (coverage, positions, share of book, breaches) to the regulator, whose node never receives the underlying contracts. |
 | You have to trust that the rules are applied the same way everywhere. | The same rulebook runs on the ledger and in the browser, and 16 shared cases prove the two give the same answer. 20 Daml tests prove each rule refuses what it should. |
 
-What this means in practice: a collateral team, a custodian or a Canton
-builder can take Mobilis today, set an agreement's eligible assets,
-haircuts and limits, and run a full margin cycle where the ledger itself
-refuses every move that breaks them. A full cycle takes about 2 seconds of
-ledger time, measured over three runs.
+A full cycle takes about 2 seconds of ledger time, measured over three runs.
+
+## Use it on your own agreement
+
+You don't need to write any code to try Mobilis on your own terms:
+
+1. Run it on a real Canton ledger with one command (see the quick start
+   below), and open the app as **Custodian**.
+2. In **Your agreement terms**, list the assets your agreement accepts, the
+   haircut on each, and the largest share of the book each may make up,
+   then click **Create agreement**. Every role switches to it, and an
+   agreement menu lets you go back to the demo one.
+3. As the pledgor and secured party, propose the moves you make in real
+   life: deliveries, swaps, returns. Raise a margin call, mark prices down
+   as the custodian, and produce the regulator's report.
+
+The ledger refuses every move that breaks your terms and says why (an
+asset that isn't on the schedule, a limit that would be exceeded, a book
+left short), and shows how far short you are and the cheapest fix. It
+works as a rule checker and what-if tool for a real agreement, before
+anything touches your production systems.
+
+With a Canton wallet, the same form appears after **Connect wallet**: one
+approval creates a test agreement on your terms, with your party in every
+role (see [docs/WALLET.md](docs/WALLET.md)).
+
+Builders can also reuse the rulebook itself: valuation and every rule check
+live in [daml/daml/Valuation.daml](daml/daml/Valuation.daml), with a matching
+browser copy in [ui/rules.js](ui/rules.js) and tests proving the two agree.
 
 ## Why Canton
 
