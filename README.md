@@ -34,21 +34,31 @@ corporate-action data is still handled by hand (SIX).
 - **Risk and compliance teams, and regulators,** who need to know the book
   is covered without being handed every firm's raw positions.
 
-## What Mobilis does
+## What it solves today
 
 Mobilis puts the collateral agreement's rules on the ledger, so the ledger
-enforces them instead of a person checking them afterwards.
+enforces them instead of a person checking them afterwards. Every row below
+is built and working now. You can see each one in the
+[3-minute demo](https://mobilis-angelraphs-projects.vercel.app/demo.html)
+or run it yourself on a real Canton ledger with one command.
 
-- A margin call, top-up, return or swap is proposed by one side, agreed by
-  the other and settled by the custodian, in one atomic transaction.
-- Eligibility, haircuts, coverage and concentration limits are checked
-  inside the Daml contract at agreement, and checked again at settlement
-  against the book as it stands then. A move that breaks the agreement
-  can't settle.
-- The custodian marks prices, the whole book re-values at once, and a
-  shortfall shows up immediately along with the cheapest top-up to fix it.
-- The regulator receives a computed audit report (coverage, positions,
-  breaches) and never the underlying contracts.
+| The problem today | What Mobilis does about it, now |
+|---|---|
+| A swap that breaks the agreement is caught days later, after it has settled. | The Daml contract checks eligibility, haircuts, coverage and concentration limits when a move is agreed, and again at settlement. A rule-breaking move is refused and never settles. |
+| Every firm keeps its own copy of the book, so teams spend their time reconciling. | Pledgor, secured party and custodian work from one shared agreement and one live schedule. There is no second copy to reconcile. |
+| Swaps settle in pieces: one leg moves, the other gets stuck, and someone chases it by email. | A substitution releases the old collateral and locks the new one in a single atomic transaction, or nothing happens at all. |
+| Nobody can see in real time what's pledged against what's required. | Every role sees the live schedule, posted value after haircuts, required amount and coverage, updated with every settled move. |
+| When prices fall, the shortfall is found late and fixing it is guesswork. | The custodian marks prices, the whole book re-values in one step, releases are blocked while it's short, and the pledgor is shown the cheapest top-up that restores coverage. |
+| Picking which asset to post or swap is manual, and the cheap choice often breaks a limit. | The optimiser lists only the swaps the rules allow, ranks them by funding cost, and the ledger re-checks whichever one is chosen. |
+| A margin call is marked done before anyone has checked the book is actually covered. | A call moves from Requested to Applied to Fulfilled, and the ledger only lets it reach Fulfilled once coverage is met. |
+| Regulators either get a spreadsheet days later, or too much raw data. | The custodian issues an audit report (coverage, positions, share of book, breaches) to the regulator, whose node never receives the underlying contracts. |
+| You have to trust that the rules are applied the same way everywhere. | The same rulebook runs on the ledger and in the browser, and 16 shared cases prove the two give the same answer. 20 Daml tests prove each rule refuses what it should. |
+
+What this means in practice: a collateral team, a custodian or a Canton
+builder can take Mobilis today, set an agreement's eligible assets,
+haircuts and limits, and run a full margin cycle where the ledger itself
+refuses every move that breaks them. A full cycle takes about 2 seconds of
+ledger time, measured over three runs.
 
 ## Why Canton
 
@@ -70,14 +80,17 @@ enforces them instead of a person checking them afterwards.
 
 ## The vision
 
-Collateral agreements become shared code that every party settles against,
-instead of documents each firm interprets and reconciles on its own. The
-path starts small: one agreement on DevNet, then a pilot with one custodian
-and one of its clients, run alongside their current process. Then a
-custodian's whole book, with netting and reuse across agreements and
-intraday margin calls. Then MainNet, where collateral moves between firms
-as freely as cash, with every rule enforced and regulators getting
-assurance without seeing anyone's book.
+The vision is already true for one agreement: the agreement is shared code
+that every party settles against, instead of a document each firm reads and
+reconciles on its own. A bad move can't happen, everyone sees the same live
+book, and the regulator gets assurance without seeing anyone's positions.
+
+Growing it means doing the same for more agreements, more firms and real
+networks: first DevNet, then a pilot with one custodian and one of its
+clients run alongside their current process, then a custodian's whole book
+with netting and intraday margin calls, then MainNet. The aim is that
+collateral moves between firms as freely as cash, with every rule enforced
+by the ledger.
 
 ## Where it stands, honestly
 
