@@ -15,6 +15,10 @@ installing anything.
 - It needs about **2 GB of memory** (the Canton sandbox and the JSON API
   are two JVMs), so free tiers with 512 MB are not enough.
 
+**Live now:** https://mobilis-demo-production.up.railway.app/ui/demo-wall.html (Railway, deployed from this repo with `railway up`;
+`PORT=7575`, and `JAVA_TOOL_OPTIONS=-Xmx1800m -XX:+UseSerialGC` to keep
+memory, and so cost, down).
+
 ## Option A: Fly.io (builds remotely, no Docker needed locally)
 
 ```bash

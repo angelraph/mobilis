@@ -1581,7 +1581,9 @@ function renderBody() {
     app.appendChild(
       el("div", { class: "preview-banner" }, [
         el("strong", { text: "Static preview: sample data. " }),
-        el("span", { text: "No Daml ledger is connected here, so actions are disabled. To run it live on a real Canton ledger: " }),
+        el("span", { text: "No Daml ledger is connected here, so actions are disabled. " }),
+        el("a", { href: "https://mobilis-demo-production.up.railway.app/ui/demo-wall.html", text: "Try it on the live ledger →" }),
+        el("span", { text: " Or run it yourself: " }),
         el("code", { text: "sh scripts/demo-ledger.sh" }),
         el("a", { href: "run-locally.html", text: "Step-by-step guide →" }),
       ])

@@ -16,6 +16,8 @@ RUN apt-get update \
 # The Canton 3.x SDK (dpm). The installer puts it under the home directory.
 RUN curl -sSL https://get.digitalasset.com/install/install.sh | sh
 ENV PATH="/root/.dpm/bin:/root/.local/bin:${PATH}"
+# The installer fetches the latest SDK; the packages pin 3.5.12 (daml.yaml).
+RUN dpm install 3.5.12
 
 WORKDIR /app
 COPY multi-package.yaml ./

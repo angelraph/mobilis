@@ -127,8 +127,8 @@ HOME = """
     <h1>Collateral that moves.<br><span class="ribbon-text">Rules that hold.</span></h1>
     <p class="lede">Mobilis moves collateral between a pledgor, a secured party and a custodian in one atomic transaction. The Canton ledger itself enforces eligibility, haircuts, coverage and concentration. The regulator sees a report, never anyone's book.</p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="demo.html">Watch the demo</a>
-      <a class="btn btn-ghost" href="how-it-works.html">How it works</a>
+      <a class="btn btn-primary" href="https://mobilis-demo-production.up.railway.app/ui/demo-wall.html">Try it live</a>
+      <a class="btn btn-ghost" href="demo.html">Watch the demo</a>
     </div>
   </div>
   <div class="feed" aria-label="Replay of the recorded demo cycle, stamped with your local time">
@@ -255,7 +255,7 @@ DEMO = page_hero(
     <div class="video reveal">
       <video src="media/mobilis-demo.mp4" poster="media/demo-poster.jpg" controls preload="metadata" playsinline></video>
     </div>
-    <p class="fine">3 min 10 s · narrated · recorded from a local Canton sandbox through the real UI. <a href="demo-wall.html">Open the four views</a> with sample data, or <a href="https://github.com/angelraph/mobilis">run it yourself</a>.</p>
+    <p class="fine">3 min 10 s · narrated · recorded from a local Canton sandbox through the real UI. <a href="https://mobilis-demo-production.up.railway.app/ui/demo-wall.html">Try it on the live ledger</a>, <a href="demo-wall.html">open the four views</a> with sample data, or <a href="https://github.com/angelraph/mobilis">run it yourself</a>.</p>
   </div>
 </section>
 

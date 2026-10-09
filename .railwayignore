@@ -1,0 +1,13 @@
+.git
+.claude
+daml/.daml
+daml/log
+daml/*.log
+proxy/.env
+proxy/*.log
+ui/media/*.mp4
+ui/.vercel
+scripts/video
+docs
+daml-test/.daml
+node_modules
