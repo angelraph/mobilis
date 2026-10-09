@@ -12,7 +12,7 @@ What's new:
 
 → A bug I caught while testing: the regulator report could still say "fully collateralised" right after a margin call or a price drop. It now follows the real numbers.
 
-Something to try: as the pledgor, propose swapping Treasuries for corporate bonds past the concentration limit. Agree it as the secured party. The ledger says no, and tells you why.
+Something to try: deliver some Treasuries and settle them, then propose swapping them all for corporate bonds, which breaks the 60% concentration limit. Agree it as the other side. The ledger says no, and tells you why.
 
 It's a shared demo ledger that resets every few hours, not DevNet yet. That's the next step, along with talking to the people who actually run collateral desks. If that's you, I'd love one honest minute of feedback, even if it's "this wouldn't work because…"
 
