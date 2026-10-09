@@ -8,6 +8,92 @@ Repo: [github.com/angelraph/mobilis](https://github.com/angelraph/mobilis)
 Demo video (3 min, narrated, recorded from a live Canton ledger): [mobilis-demo.mp4](https://mobilis-angelraphs-projects.vercel.app/media/mobilis-demo.mp4)
 Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) · FAQ: [docs/FAQ.md](docs/FAQ.md)
 
+## The problem
+
+When one firm lends to another, the borrower pledges collateral, usually
+bonds or cash. Every day someone has to check that collateral: is this
+asset allowed under the agreement, what's it worth after the agreed
+haircut, does it still cover the exposure, and is one asset type taking up
+too much of the book? When prices move, the lender calls for more. When the
+borrower wants a bond back, it offers a swap.
+
+At most firms that work still runs on spreadsheets, email and phone calls,
+and every party keeps its own copy of the book. So a swap that breaks the
+agreement is often only caught days later, when someone reconciles, and by
+then it has already settled. Industry estimates put manual collateral and
+corporate-action processing at €1.6 to 8B a year, and 46% of
+corporate-action data is still handled by hand (SIX).
+
+## Who needs it
+
+- **Collateral and margin operations teams** at custodians and triparty
+  agents, who settle the moves and carry the operational risk.
+- **Treasury and funding desks** at dealers and asset managers (the
+  pledgor side), who want to move collateral quickly and cheaply without
+  breaking the agreement.
+- **Risk and compliance teams, and regulators,** who need to know the book
+  is covered without being handed every firm's raw positions.
+
+## What Mobilis does
+
+Mobilis puts the collateral agreement's rules on the ledger, so the ledger
+enforces them instead of a person checking them afterwards.
+
+- A margin call, top-up, return or swap is proposed by one side, agreed by
+  the other and settled by the custodian, in one atomic transaction.
+- Eligibility, haircuts, coverage and concentration limits are checked
+  inside the Daml contract at agreement, and checked again at settlement
+  against the book as it stands then. A move that breaks the agreement
+  can't settle.
+- The custodian marks prices, the whole book re-values at once, and a
+  shortfall shows up immediately along with the cheapest top-up to fix it.
+- The regulator receives a computed audit report (coverage, positions,
+  breaches) and never the underlying contracts.
+
+## Why Canton
+
+- **Privacy is built in.** A Canton node only receives the contracts its
+  party is entitled to see. The pledgor, secured party and custodian share
+  the agreement; the regulator's node holds only the report. A public chain
+  would expose every firm's book, and a shared database would need one
+  party everyone trusts to run it.
+- **Atomic multi-party settlement.** The old collateral is released and the
+  new one locked in a single step across all parties, or nothing happens.
+  No half-finished swaps to chase.
+- **One shared record, run by each firm.** Every party runs its own node
+  but works from the same agreement, so there's nothing to reconcile.
+- **The volume is already here.** Broadridge's Distributed Ledger Repo
+  platform runs $8T+ a month on Canton, DTCC is taking tokenized Treasuries
+  to production, and the Canton Industry Working Group is working on
+  collateral mobility. What's missing is the day-to-day operational
+  tooling, which is what Mobilis is.
+
+## The vision
+
+Collateral agreements become shared code that every party settles against,
+instead of documents each firm interprets and reconciles on its own. The
+path starts small: one agreement on DevNet, then a pilot with one custodian
+and one of its clients, run alongside their current process. Then a
+custodian's whole book, with netting and reuse across agreements and
+intraday margin calls. Then MainNet, where collateral moves between firms
+as freely as cash, with every rule enforced and regulators getting
+assurance without seeing anyone's book.
+
+## Where it stands, honestly
+
+- **Built and tested:** the full margin cycle on a local Canton 3.x ledger,
+  20 Daml tests, 16 rulebook cases checked on both the ledger and the
+  browser, a full cycle in about 2 seconds of ledger time, a narrated demo,
+  and wallet connect with a one-click solo test agreement.
+- **Not yet:** DevNet deployment, a live market price feed, tokenised
+  holdings, real authentication, and testing with a real wallet on a
+  public network.
+- **Not yet validated with users:** no customer interviews have happened
+  so far. The adoption risks we've identified ourselves, and the planned
+  answer to each, are in [docs/ROADMAP.md](docs/ROADMAP.md#known-risks-weve-identified).
+  Feedback is welcome at
+  [the feedback page](https://mobilis-angelraphs-projects.vercel.app/feedback.html).
+
 ## Quick start: run it on a real Canton ledger
 
 Runs on **Canton 3.x** (SDK 3.5, Daml-LF 2.x, JSON Ledger API v2). Needs Git,
@@ -297,12 +383,11 @@ Daml SDK and JDK are installed on this machine) and what's next.
 
 ## Not yet built
 
-DevNet deployment. It's gated behind the hackathon's own onboarding
-(opens with the Delivery phase, not self-serviceable today) rather than
-something to build ahead of time; see
+DevNet deployment. Joining DevNet needs a sponsoring validator and IP
+allowlisting, or a validator operator willing to host the Mobilis package,
+which is what we are asking HackCanton for. See
 [docs/devnet-deployment.md](docs/devnet-deployment.md) for the checklist
 to run through the moment access lands, including the one thing in this
 repo that is explicitly not ready for a real network (the local-dev auth
-in `ui/app.js`).
-
-See the plan file this was scaffolded from for the week-by-week build order.
+in `ui/app.js`), and [docs/WALLET.md](docs/WALLET.md) for what makes the
+wallet flow work for anyone once the package is on a DevNet participant.
